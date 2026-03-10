@@ -1,13 +1,15 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Otp } from 'src/otp/otp.entity';
-import { User } from 'src/users/user.entity';
+import { Otp } from 'src/auth/entity/otp.entity';
+import { User } from 'src/auth/entity/user.entity';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { MailService } from 'src/mail/mail.service';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { resendOtpDto } from './dto/resend-otp.dto';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 
 @Injectable()
@@ -20,7 +22,10 @@ export class AuthService {
         private otpRepo: Repository<Otp>,
 
         private jwtService: JwtService,
-        private mailService: MailService
+        private mailService: MailService,
+
+        @InjectQueue('emailQueue')
+        private emailQueue: Queue,
     ) { }
 
     generateotp() {
@@ -44,7 +49,12 @@ export class AuthService {
         })
 
         await this.otpRepo.save(otpRecord);
-        await this.mailService.sendOtp(dto.email, otp);
+
+        await this.emailQueue.add('sendOtp', {
+            email: dto.email,
+            otp
+        })
+        // await this.mailService.sendOtp(dto.email, otp);
         return { message: 'Otp is sent to register email' }
     }
     async verifyOtp(email: string, otp: string) {
@@ -97,6 +107,11 @@ export class AuthService {
     async forgotPassword(email: string) {
         const user = await this.userRepo.findOne({ where: { email } });
         if (!user) throw new Error("User not found")
+
+        if (!user.isVerified) {
+            throw new UnauthorizedException('User is not verified');
+        }
+
         const otp = this.generateotp();
 
         const otpRecord = await this.otpRepo.create({
@@ -107,7 +122,7 @@ export class AuthService {
         await this.mailService.sendOtp(email, otp);
 
         return {
-            message: "Forgot password OTp sent to email"
+            message: "Forgot password OTP sent to email"
         }
     }
 
@@ -173,10 +188,14 @@ export class AuthService {
             await this.otpRepo.save(otpRecord)
         }
 
+        await this.emailQueue.add('sendOtp', {
+            email: dto.email,
+            otp
+        })
         await this.mailService.sendOtp(dto.email, otp)
 
         return {
-            message : "OTP sent to email"
+            message: "OTP sent to email"
         }
 
     }

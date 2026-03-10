@@ -25,4 +25,9 @@ export default () => ({
     otp: {
         expireTime: parseInt(process.env.OTP_EXPIRE_TIME ?? '300', 10),
     },
+
+    redis: {
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+    }
 });

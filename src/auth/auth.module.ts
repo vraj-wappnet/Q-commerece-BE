@@ -2,11 +2,12 @@ import { Module } from "@nestjs/common";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { User } from "src/users/user.entity";
-import { Otp } from "src/otp/otp.entity";
+import { User } from "src/auth/entity/user.entity";
+import { Otp } from "src/auth/entity/otp.entity";
 import { JwtModule, JwtModuleOptions } from "@nestjs/jwt";
 import { MailModule } from "src/mail/mail.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { BullModule } from "@nestjs/bullmq";
 
 @Module({
   imports: [
@@ -21,9 +22,13 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
         },
       }),
     }),
+
+    BullModule.registerQueue({
+      name: "emailQueue"
+    }),
     MailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }
