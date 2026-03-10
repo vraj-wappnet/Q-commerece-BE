@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsEnum, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { UserRole } from 'src/common/enum/roles.enum';
 
@@ -42,4 +42,20 @@ export class RegisterDto {
     })
     @IsEnum(UserRole)
     role: UserRole;
+
+    @ApiProperty({ example: 'https://res.cloudinary.com/...', description: 'Shop license URL', required: false })
+    @IsOptional()
+    shopLicense?: string;
+
+    @ApiProperty({ example: 'Bike', description: 'Type of vehicle for delivery role', required: false })
+    @IsOptional()
+    vehicleType?: string;
+
+    @ApiProperty({ example: 'Honda Shine', description: 'Name of vehicle for delivery role', required: false })
+    @IsOptional()
+    vehicleName?: string;
+
+    @ApiProperty({ example: 'https://res.cloudinary.com/...', description: 'Driving license URL', required: false })
+    @IsOptional()
+    drivingLicense?: string;
 }

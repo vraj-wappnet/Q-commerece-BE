@@ -6,6 +6,7 @@ import { User } from 'src/auth/entity/user.entity';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { MailService } from 'src/mail/mail.service';
+import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { resendOtpDto } from './dto/resend-otp.dto';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -32,12 +33,16 @@ export class AuthService {
         return Math.floor(100000 + Math.random() * 900000).toString()
     }
 
-    async register(dto: any) {
+    async register(dto: RegisterDto) {
         const hashed = await bcrypt.hash(dto.password, 10)
-        const user = this.userRepo.create({
+
+        const userData = {
             ...dto,
-            password: hashed
-        })
+            password: hashed,
+        }
+
+
+        const user = this.userRepo.create(userData)
         await this.userRepo.save(user);
 
         const otp = this.generateotp();

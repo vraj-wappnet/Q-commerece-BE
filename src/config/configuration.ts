@@ -1,3 +1,4 @@
+
 export default () => ({
     port: parseInt(process.env.PORT ?? '3000', 10),
 
@@ -29,5 +30,13 @@ export default () => ({
     redis: {
         host: process.env.REDIS_HOST,
         port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+    },
+
+    cloudinary: {
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
     }
+
 });
+

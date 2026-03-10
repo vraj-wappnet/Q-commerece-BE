@@ -6,6 +6,7 @@ import { Otp } from './auth/entity/otp.entity';
 import { AuthModule } from './auth/auth.module';
 import configuration from './config/configuration';
 import { BullModule } from '@nestjs/bullmq';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { BullModule } from '@nestjs/bullmq';
     }),
 
     AuthModule,
+    MediaModule
   ],
 })
 export class AppModule { }
