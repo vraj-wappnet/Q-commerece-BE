@@ -1,12 +1,12 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from './auth/entity/user.entity';
-import { Otp } from './auth/entity/otp.entity';
-import { AuthModule } from './auth/auth.module';
-import configuration from './config/configuration';
-import { BullModule } from '@nestjs/bullmq';
-import { MediaModule } from './media/media.module';
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { TypeOrmModule } from "@nestjs/typeorm";
+import { User } from "./auth/entity/user.entity";
+import { Otp } from "./auth/entity/otp.entity";
+import { AuthModule } from "./auth/auth.module";
+import configuration from "./config/configuration";
+import { BullModule } from "@nestjs/bullmq";
+import { MediaModule } from "./media/media.module";
 
 @Module({
   imports: [
@@ -19,12 +19,12 @@ import { MediaModule } from './media/media.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('database.host'),
-        port: config.get<number>('database.port'),
-        username: config.get<string>('database.username'),
-        password: config.get<string>('database.password'),
-        database: config.get<string>('database.name'),
+        type: "postgres",
+        host: config.get<string>("database.host"),
+        port: config.get<number>("database.port"),
+        username: config.get<string>("database.username"),
+        password: config.get<string>("database.password"),
+        database: config.get<string>("database.name"),
         entities: [User, Otp],
         synchronize: false,
       }),
@@ -35,14 +35,14 @@ import { MediaModule } from './media/media.module';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         connection: {
-          host: config.get<string>('redis.host'),
-          port: config.get<number>('redis.port'),
+          host: config.get<string>("redis.host"),
+          port: config.get<number>("redis.port"),
         },
       }),
     }),
 
     AuthModule,
-    MediaModule
+    MediaModule,
   ],
 })
-export class AppModule { }
+export class AppModule {}

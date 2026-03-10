@@ -3,30 +3,29 @@ import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
 export class User {
-    
-    @PrimaryGeneratedColumn('uuid')
-    id :string
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
 
-    @Column()
-    firstName :string
+  @Column()
+  firstName: string;
 
-    @Column()
-    lastName :string
+  @Column()
+  lastName: string;
 
-    @Column({unique:true})
-    email :string
+  @Column({ unique: true })
+  email: string;
 
-    @Column()
-    password:string
+  @Column()
+  password: string;
 
-    @Column({ unique: true })
-    mobile: string;
+  @Column({ unique: true })
+  mobile: string;
 
-    @Column({
-        type:'enum' ,
-        enum: UserRole
-    })
-    role : UserRole
+  @Column({
+    type: "enum",
+    enum: UserRole,
+  })
+  role: UserRole;
 
   @Column({ default: false })
   isVerified: boolean;

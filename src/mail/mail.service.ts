@@ -1,36 +1,36 @@
 import { Injectable } from "@nestjs/common";
 import { MailerService } from "@nestjs-modules/mailer";
-import { join } from 'path';
+import { join } from "path";
 
 @Injectable()
 export class MailService {
-    constructor(private mailerService: MailerService) { }
+  constructor(private mailerService: MailerService) {}
 
-    async sendOtp(email: string, otp: string) {
-        const logoPath = join(__dirname, '..', 'assets', 'images', 'logo.png');
-        const otpArray = otp.split('');
-        const otpBoxes = otpArray
-            .map(
-                (char) => `
+  async sendOtp(email: string, otp: string) {
+    const logoPath = join(__dirname, "..", "assets", "images", "logo.png");
+    const otpArray = otp.split("");
+    const otpBoxes = otpArray
+      .map(
+        (char) => `
                 <div style="display: inline-block; width: 45px; height: 50px; line-height: 50px; text-align: center; border: 1px solid #2563EB; border-radius: 10px; margin: 0 5px; font-size: 24px; font-weight: bold; color: #1F2937; background-color: #ffffff;">
                     ${char}
                 </div>
             `,
-            )
-            .join('');
+      )
+      .join("");
 
-        await this.mailerService.sendMail({
-            to: email,
-            from: `"SwiftMart Support" <${process.env.MAIL_USER}>`,
-            subject: "Verify Your SwiftMart Account - OTP Code",
-            attachments: [
-                {
-                    filename: 'logo.png',
-                    path: logoPath,
-                    cid: 'swiftmart-logo',
-                },
-            ],
-            html: `
+    await this.mailerService.sendMail({
+      to: email,
+      from: `"SwiftMart Support" <${process.env.MAIL_USER}>`,
+      subject: "Verify Your SwiftMart Account - OTP Code",
+      attachments: [
+        {
+          filename: "logo.png",
+          path: logoPath,
+          cid: "swiftmart-logo",
+        },
+      ],
+      html: `
             <!DOCTYPE html>
             <html lang="en">
             <head>
@@ -76,6 +76,6 @@ export class MailService {
             </body>
             </html>
             `,
-        });
-    }
+    });
+  }
 }

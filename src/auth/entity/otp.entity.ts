@@ -1,11 +1,11 @@
 import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity()
-export class Otp{
-    @PrimaryGeneratedColumn('uuid')
-    id : string
+export class Otp {
+  @PrimaryGeneratedColumn("uuid")
+  id: string;
 
-    @Column()
+  @Column()
   email: string;
 
   @Column()
