@@ -7,6 +7,9 @@ import { AuthModule } from './auth/auth.module';
 import configuration from './config/configuration';
 import { BullModule } from '@nestjs/bullmq';
 import { MediaModule } from './media/media.module';
+import { UsersModule } from './users/users.module';
+import { AdminModule } from './admin/admin.module';
+
 
 @Module({
   imports: [
@@ -42,7 +45,10 @@ import { MediaModule } from './media/media.module';
     }),
 
     AuthModule,
-    MediaModule
+    MediaModule,
+    UsersModule,
+    AdminModule
+
   ],
 })
 export class AppModule { }

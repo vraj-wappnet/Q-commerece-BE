@@ -8,6 +8,9 @@ import { JwtModule, JwtModuleOptions } from "@nestjs/jwt";
 import { MailModule } from "src/mail/mail.module";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { BullModule } from "@nestjs/bullmq";
+import { PassportModule } from "@nestjs/passport";
+import { JwtStrategy } from "./jwt.strategy";
+
 
 @Module({
   imports: [
@@ -27,8 +30,10 @@ import { BullModule } from "@nestjs/bullmq";
       name: "emailQueue"
     }),
     MailModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService, PassportModule],
 })
 export class AuthModule { }
