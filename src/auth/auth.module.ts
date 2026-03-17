@@ -11,7 +11,6 @@ import { BullModule } from "@nestjs/bullmq";
 import { PassportModule } from "@nestjs/passport";
 import { JwtStrategy } from "./jwt.strategy";
 
-
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Otp]),
@@ -19,21 +18,23 @@ import { JwtStrategy } from "./jwt.strategy";
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService): JwtModuleOptions => ({
-        secret: config.get<string>('jwt.secret'),
+        secret: config.get<string>("jwt.secret"),
         signOptions: {
-          expiresIn: config.get<string>('jwt.expiresIn') as NonNullable<JwtModuleOptions['signOptions']>['expiresIn'],
+          expiresIn: config.get<string>("jwt.expiresIn") as NonNullable<
+            JwtModuleOptions["signOptions"]
+          >["expiresIn"],
         },
       }),
     }),
 
     BullModule.registerQueue({
-      name: "emailQueue"
+      name: "emailQueue",
     }),
     MailModule,
-    PassportModule.register({ defaultStrategy: 'jwt' }),
+    PassportModule.register({ defaultStrategy: "jwt" }),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
   exports: [AuthService, PassportModule],
 })
-export class AuthModule { }
+export class AuthModule {}

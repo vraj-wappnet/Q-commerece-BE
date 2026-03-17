@@ -3,8 +3,7 @@ import { CloudinaryService } from "src/cloudinary/cloudinary.service";
 import { MediaController } from "./media.controller";
 
 @Module({
-    controllers: [MediaController],
-    providers: [CloudinaryService],
+  controllers: [MediaController],
+  providers: [CloudinaryService],
 })
-
-export class MediaModule { }
+export class MediaModule {}

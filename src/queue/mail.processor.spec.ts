@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { MailProcessor } from './mail.processor';
-import { MailService } from 'src/mail/mail.service';
-import { Job } from 'bullmq';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Test, TestingModule } from "@nestjs/testing";
+import { MailProcessor } from "./mail.processor";
+import { MailService } from "src/mail/mail.service";
+import { Job } from "bullmq";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
-describe('MailProcessor', () => {
+describe("MailProcessor", () => {
   let processor: MailProcessor;
   let mailService: MailService;
 
@@ -28,25 +28,28 @@ describe('MailProcessor', () => {
     vi.clearAllMocks();
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(processor).toBeDefined();
   });
 
-  describe('process', () => {
-    it('should call mailService.sendOtp when job name is sendOtp', async () => {
+  describe("process", () => {
+    it("should call mailService.sendOtp when job name is sendOtp", async () => {
       const mockJob = {
-        name: 'sendOtp',
-        data: { email: 'test@example.com', otp: '123456' },
+        name: "sendOtp",
+        data: { email: "test@example.com", otp: "123456" },
       } as Job;
 
       await processor.process(mockJob);
 
-      expect(mockMailService.sendOtp).toHaveBeenCalledWith('test@example.com', '123456');
+      expect(mockMailService.sendOtp).toHaveBeenCalledWith(
+        "test@example.com",
+        "123456",
+      );
     });
 
-    it('should not call mailService.sendOtp when job name is not sendOtp', async () => {
+    it("should not call mailService.sendOtp when job name is not sendOtp", async () => {
       const mockJob = {
-        name: 'otherJob',
+        name: "otherJob",
         data: {},
       } as Job;
 

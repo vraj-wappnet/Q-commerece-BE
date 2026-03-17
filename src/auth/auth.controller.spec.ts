@@ -1,9 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Test, TestingModule } from "@nestjs/testing";
+import { AuthController } from "./auth.controller";
+import { AuthService } from "./auth.service";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
-describe('AuthController', () => {
+describe("AuthController", () => {
   let controller: AuthController;
 
   const mockAuthService = {
@@ -29,7 +29,7 @@ describe('AuthController', () => {
     controller = module.get<AuthController>(AuthController);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(controller).toBeDefined();
   });
 });

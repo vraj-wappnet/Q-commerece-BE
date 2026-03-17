@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
-import { CloudinaryService } from './cloudinary.service';
-import { v2 as cloudinary } from 'cloudinary';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Test, TestingModule } from "@nestjs/testing";
+import { ConfigService } from "@nestjs/config";
+import { CloudinaryService } from "./cloudinary.service";
+import { v2 as cloudinary } from "cloudinary";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
-vi.mock('cloudinary', () => ({
+vi.mock("cloudinary", () => ({
   v2: {
     uploader: {
       upload_stream: vi.fn(),
@@ -12,7 +12,7 @@ vi.mock('cloudinary', () => ({
   },
 }));
 
-describe('CloudinaryService', () => {
+describe("CloudinaryService", () => {
   let service: CloudinaryService;
   let configService: ConfigService;
 
@@ -31,33 +31,37 @@ describe('CloudinaryService', () => {
     configService = module.get<ConfigService>(ConfigService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(service).toBeDefined();
   });
 
-  describe('uploadImage', () => {
-    it('should upload an image', async () => {
-      const mockFile = { buffer: Buffer.from('test') } as Express.Multer.File;
-      const mockResult = { url: 'http://test.com' };
-      
+  describe("uploadImage", () => {
+    it("should upload an image", async () => {
+      const mockFile = { buffer: Buffer.from("test") } as Express.Multer.File;
+      const mockResult = { url: "http://test.com" };
+
       const uploadStreamMock = {
         end: vi.fn(),
       };
-      
-      (cloudinary.uploader.upload_stream as any).mockImplementation((options, callback) => {
-        callback(null, mockResult);
-        return uploadStreamMock;
-      });
+
+      (cloudinary.uploader.upload_stream as any).mockImplementation(
+        (options, callback) => {
+          callback(null, mockResult);
+          return uploadStreamMock;
+        },
+      );
 
       const result = await service.uploadImage(mockFile);
-      
+
       expect(result).toEqual(mockResult);
       expect(uploadStreamMock.end).toHaveBeenCalledWith(mockFile.buffer);
     });
 
-    it('should throw error if no buffer provided', async () => {
+    it("should throw error if no buffer provided", async () => {
       const mockFile = {} as Express.Multer.File;
-      await expect(service.uploadImage(mockFile)).rejects.toThrow('No image buffer provided');
+      await expect(service.uploadImage(mockFile)).rejects.toThrow(
+        "No image buffer provided",
+      );
     });
   });
 });

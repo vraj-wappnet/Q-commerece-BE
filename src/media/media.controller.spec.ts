@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { MediaController } from './media.controller';
-import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-import { BadRequestException } from '@nestjs/common';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { Test, TestingModule } from "@nestjs/testing";
+import { MediaController } from "./media.controller";
+import { CloudinaryService } from "src/cloudinary/cloudinary.service";
+import { BadRequestException } from "@nestjs/common";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 
-describe('MediaController', () => {
+describe("MediaController", () => {
   let controller: MediaController;
   let cloudinaryService: CloudinaryService;
 
@@ -27,27 +27,31 @@ describe('MediaController', () => {
     cloudinaryService = module.get<CloudinaryService>(CloudinaryService);
   });
 
-  it('should be defined', () => {
+  it("should be defined", () => {
     expect(controller).toBeDefined();
   });
 
-  describe('uploadImage', () => {
-    it('should upload an image and return message and url', async () => {
-      const mockFile = { buffer: Buffer.from('test') } as Express.Multer.File;
-      const mockCloudinaryResult = { secure_url: 'http://cloudinary.com/test.png' };
+  describe("uploadImage", () => {
+    it("should upload an image and return message and url", async () => {
+      const mockFile = { buffer: Buffer.from("test") } as Express.Multer.File;
+      const mockCloudinaryResult = {
+        secure_url: "http://cloudinary.com/test.png",
+      };
       mockCloudinaryService.uploadImage.mockResolvedValue(mockCloudinaryResult);
 
       const result = await controller.uploadImage(mockFile);
 
       expect(result).toEqual({
         message: "Image Uploaded Successfully",
-        url: mockCloudinaryResult.secure_url
+        url: mockCloudinaryResult.secure_url,
       });
       expect(mockCloudinaryService.uploadImage).toHaveBeenCalledWith(mockFile);
     });
 
-    it('should throw BadRequestException if no file is provided', async () => {
-      await expect(controller.uploadImage(null as any)).rejects.toThrow(BadRequestException);
+    it("should throw BadRequestException if no file is provided", async () => {
+      await expect(controller.uploadImage(null as any)).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 });
