@@ -5,6 +5,8 @@ import { User } from "./auth/entity/user.entity";
 import { Otp } from "./auth/entity/otp.entity";
 import { Shop } from "./shops/entity/shop.entity";
 import { Product } from "./products/entity/product.entity";
+import { Category } from "./categories/entity/category.entity";
+import { SubCategory } from "./categories/entity/sub-category.entity";
 import { AuthModule } from "./auth/auth.module";
 import configuration from "./config/configuration";
 import { BullModule } from "@nestjs/bullmq";
@@ -13,6 +15,8 @@ import { UsersModule } from "./users/users.module";
 import { AdminModule } from "./admin/admin.module";
 import { ShopModule } from "./shops/shops.module";
 import { ProductsModule } from "./products/products.module";
+import { CartModule } from "./cart/cart.module";
+import { CategoriesModule } from "./categories/categories.module";
 
 @Module({
   imports: [
@@ -32,7 +36,7 @@ import { ProductsModule } from "./products/products.module";
         password: config.get<string>("database.password"),
         database: config.get<string>("database.name"),
         autoLoadEntities: true,
-        entities: [User, Otp, Shop, Product],
+        entities: [User, Otp, Shop, Product, Category, SubCategory],
         synchronize: false,
       }),
     }),
@@ -54,6 +58,8 @@ import { ProductsModule } from "./products/products.module";
     AdminModule,
     ShopModule,
     ProductsModule,
+    CategoriesModule,
+    CartModule,
   ],
 })
 export class AppModule {}

@@ -1,4 +1,6 @@
 import { Shop } from "src/shops/entity/shop.entity";
+import { Category } from "src/categories/entity/category.entity";
+import { SubCategory } from "src/categories/entity/sub-category.entity";
 import {
   Column,
   CreateDateColumn,
@@ -52,11 +54,11 @@ export class Product {
   @Column({ nullable: true })
   packSize: string;
 
-  @Column()
-  category: string;
+  @ManyToOne(() => Category, { nullable: true, onDelete: "SET NULL" })
+  category: Category | null;
 
-  @Column({ nullable: true })
-  subCategory: string;
+  @ManyToOne(() => SubCategory, { nullable: true, onDelete: "SET NULL" })
+  subCategory: SubCategory | null;
 
   @Column({ nullable: true })
   brand: string;

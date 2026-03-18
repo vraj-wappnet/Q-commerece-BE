@@ -5,6 +5,10 @@ import { Otp } from "../auth/entity/otp.entity";
 import { Shop } from "../shops/entity/shop.entity";
 import { SeederOptions } from "typeorm-extension";
 import { Product } from "src/products/entity/product.entity";
+import { CartItem } from "src/cart/entity/cart-item.entity";
+import { Cart } from "src/cart/entity/cart.entity";
+import { Category } from "src/categories/entity/category.entity";
+import { SubCategory } from "src/categories/entity/sub-category.entity";
 
 config();
 
@@ -15,7 +19,7 @@ const options: DataSourceOptions & SeederOptions = {
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  entities: [User, Otp, Shop, Product],
+  entities: [User, Otp, Shop, Product, Cart, CartItem, Category, SubCategory],
   migrations: ["dist/src/database/migrations/*.js"],
   synchronize: false,
   seeds: ["dist/src/database/seeds/**/*.js"],

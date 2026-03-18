@@ -5,9 +5,16 @@ import { Product } from "./entity/product.entity";
 import { Shop } from "src/shops/entity/shop.entity";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UserRole } from "src/common/enum/roles.enum";
+
+
+
+
+
 import { User } from "src/auth/entity/user.entity";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { FilterProductDto } from "./dto/filter-product.dto";
+import { Category } from "src/categories/entity/category.entity";
+import { SubCategory } from "src/categories/entity/sub-category.entity";
 
 @Injectable()
 export class ProductsService {
@@ -17,10 +24,23 @@ export class ProductsService {
 
     @InjectRepository(Shop)
     private readonly shopRepository: Repository<Shop>,
+
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
+
+    @InjectRepository(SubCategory)
+    private readonly subCategoryRepository: Repository<SubCategory>,
   ) {}
 
   async createProduct(dto: CreateProductDto, user: User) {
-    const { shopId, imageUrls, discountPercentage, ...productData } = dto;
+    const {
+      shopId,
+      imageUrls,
+      discountPercentage,
+      categoryId,
+      subCategoryId,
+      ...productData
+    } = dto;
 
     const shop = await this.shopRepository.findOne({
       where: { id: shopId },
@@ -37,6 +57,27 @@ export class ProductsService {
       );
     }
 
+    const category = await this.categoryRepository.findOne({
+      where: { id: categoryId },
+    });
+    if (!category) {
+      throw new BadRequestException("Category not found");
+    }
+
+    let subCategory: SubCategory | null = null;
+    if (subCategoryId) {
+      subCategory = await this.subCategoryRepository.findOne({
+        where: { id: subCategoryId },
+        relations: ["category"],
+      });
+      if (!subCategory) {
+        throw new BadRequestException("SubCategory not found");
+      }
+      if (subCategory.category?.id !== category.id) {
+        throw new BadRequestException("SubCategory does not belong to Category");
+      }
+    }
+
     let discount = discountPercentage;
     if (discount == null) {
       discount = ((dto.mrp - dto.sellingPrice) / dto.mrp) * 100;
@@ -47,6 +88,8 @@ export class ProductsService {
       discountPercentage: Number(discount.toFixed(2)),
       images: imageUrls,
       shop,
+      category,
+      subCategory: subCategory ?? undefined,
     });
 
     return this.productRepository.save(product);
@@ -56,7 +99,8 @@ export class ProductsService {
     const {
       search,
       shopId,
-      category,
+      categoryId,
+      subCategoryId,
       sortBy = "createdAt",
       sortOrder = "DESC",
       page = 1,
@@ -68,7 +112,9 @@ export class ProductsService {
 
     const qb = this.productRepository
       .createQueryBuilder("product")
-      .leftJoinAndSelect("product.shop", "shop");
+      .leftJoinAndSelect("product.shop", "shop")
+      .leftJoinAndSelect("product.category", "category")
+      .leftJoinAndSelect("product.subCategory", "subCategory");
 
     if (search) {
       qb.andWhere(
@@ -81,8 +127,12 @@ export class ProductsService {
       qb.andWhere("shop.id = :shopId", { shopId });
     }
 
-    if (category) {
-      qb.andWhere("product.category ILIKE :category", { category });
+    if (categoryId) {
+      qb.andWhere("category.id = :categoryId", { categoryId });
+    }
+
+    if (subCategoryId) {
+      qb.andWhere("subCategory.id = :subCategoryId", { subCategoryId });
     }
 
     // Avoid SQL injection on column name
@@ -114,7 +164,7 @@ export class ProductsService {
   async getProductById(id: string) {
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ["shop", "shop.seller"],
+      relations: ["shop", "shop.seller", "category", "subCategory"],
     });
 
     if (!product) {
@@ -127,7 +177,7 @@ export class ProductsService {
   async updateProduct(id: string, dto: UpdateProductDto, user: User) {
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: ["shop", "shop.seller"],
+      relations: ["shop", "shop.seller", "category", "subCategory"],
     });
 
     if (!product) {
@@ -158,6 +208,37 @@ export class ProductsService {
       nextShop = shop;
     }
 
+    let nextCategory = product.category;
+    if (dto.categoryId && dto.categoryId !== product.category?.id) {
+      const category = await this.categoryRepository.findOne({
+        where: { id: dto.categoryId },
+      });
+      if (!category) {
+        throw new BadRequestException("Category not found");
+      }
+      nextCategory = category;
+    }
+
+    let nextSubCategory: SubCategory | null = product.subCategory ?? null;
+
+    if (dto.subCategoryId) {
+      const sub = await this.subCategoryRepository.findOne({
+        where: { id: dto.subCategoryId },
+        relations: ["category"],
+      });
+      if (!sub) {
+        throw new BadRequestException("SubCategory not found");
+      }
+
+      if (nextCategory && sub.category?.id !== nextCategory.id) {
+        throw new BadRequestException("SubCategory does not belong to Category");
+      }
+      nextSubCategory = sub;
+    } else if (dto.categoryId && nextSubCategory?.category?.id !== nextCategory?.id) {
+      // Category changed but subCategory was not explicitly updated; drop it if it doesn't match.
+      nextSubCategory = null;
+    }
+
     // Compute discount if not explicitly provided but pricing changed (or exists).
     const nextMrp = dto.mrp ?? (product.mrp as unknown as number);
     const nextSellingPrice =
@@ -175,6 +256,8 @@ export class ProductsService {
       ...dto,
       discountPercentage: nextDiscount as any,
       shop: nextShop,
+      category: nextCategory,
+      subCategory: nextSubCategory,
     };
 
     // DTO uses imageUrls but entity stores images.
@@ -183,6 +266,8 @@ export class ProductsService {
     }
     delete (update as any).imageUrls;
     delete (update as any).shopId;
+    delete (update as any).categoryId;
+    delete (update as any).subCategoryId;
 
     const merged = this.productRepository.merge(product, update);
     return this.productRepository.save(merged);

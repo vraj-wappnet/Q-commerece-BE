@@ -63,12 +63,13 @@ export class CreateProductDto {
 
   // Category
   @ApiProperty()
-  @IsNotEmpty()
-  category: string;
+  @IsUUID()
+  categoryId: string;
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
   @IsOptional()
-  subCategory?: string;
+  @IsUUID()
+  subCategoryId?: string;
 
   @ApiProperty()
   @IsOptional()

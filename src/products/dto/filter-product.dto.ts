@@ -12,10 +12,15 @@ export class FilterProductDto {
   @IsUUID()
   shopId?: string;
 
-  @ApiPropertyOptional({ example: "Dairy" })
+  @ApiPropertyOptional({ example: "550e8400-e29b-41d4-a716-446655440000" })
   @IsOptional()
-  @IsString()
-  category?: string;
+  @IsUUID()
+  categoryId?: string;
+
+  @ApiPropertyOptional({ example: "550e8400-e29b-41d4-a716-446655440000" })
+  @IsOptional()
+  @IsUUID()
+  subCategoryId?: string;
 
   @ApiPropertyOptional({ example: "ASC", enum: ["ASC", "DESC"] })
   @IsOptional()
@@ -34,4 +39,3 @@ export class FilterProductDto {
   @IsOptional()
   limit?: number;
 }
-
