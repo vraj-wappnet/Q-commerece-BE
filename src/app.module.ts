@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { User } from "./auth/entity/user.entity";
 import { Otp } from "./auth/entity/otp.entity";
 import { Shop } from "./shops/entity/shop.entity";
+import { Product } from "./products/entity/product.entity";
 import { AuthModule } from "./auth/auth.module";
 import configuration from "./config/configuration";
 import { BullModule } from "@nestjs/bullmq";
@@ -11,6 +12,7 @@ import { MediaModule } from "./media/media.module";
 import { UsersModule } from "./users/users.module";
 import { AdminModule } from "./admin/admin.module";
 import { ShopModule } from "./shops/shops.module";
+import { ProductsModule } from "./products/products.module";
 
 @Module({
   imports: [
@@ -30,7 +32,7 @@ import { ShopModule } from "./shops/shops.module";
         password: config.get<string>("database.password"),
         database: config.get<string>("database.name"),
         autoLoadEntities: true,
-        entities: [User, Otp, Shop],
+        entities: [User, Otp, Shop, Product],
         synchronize: false,
       }),
     }),
@@ -51,6 +53,7 @@ import { ShopModule } from "./shops/shops.module";
     UsersModule,
     AdminModule,
     ShopModule,
+    ProductsModule,
   ],
 })
 export class AppModule {}
