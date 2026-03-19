@@ -20,10 +20,14 @@ import { CartService } from './cart.service';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
 import { jwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/common/guards/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
+import { UserRole } from 'src/common/enum/roles.enum';
 
 @ApiTags('Cart')
 @ApiBearerAuth()
-@UseGuards(jwtAuthGuard)
+@UseGuards(jwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN, UserRole.CUSTOMER)
 @Controller('cart')
 export class CartController {
   constructor(private cartService: CartService) {}

@@ -9,6 +9,9 @@ import { CartItem } from "src/cart/entity/cart-item.entity";
 import { Cart } from "src/cart/entity/cart.entity";
 import { Category } from "src/categories/entity/category.entity";
 import { SubCategory } from "src/categories/entity/sub-category.entity";
+import { Order } from "src/orders/entity/order.entity";
+import { OrderItem } from "src/orders/entity/order-item.entity";
+import { DeliveryProfile } from "src/delivery_profiles/entity/delivery-profile.entity";
 
 config();
 
@@ -19,7 +22,19 @@ const options: DataSourceOptions & SeederOptions = {
   username: process.env.DB_USERNAME,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  entities: [User, Otp, Shop, Product, Cart, CartItem, Category, SubCategory],
+  entities: [
+    User,
+    Otp,
+    Shop,
+    Product,
+    Cart,
+    CartItem,
+    Category,
+    SubCategory,
+    Order,
+    OrderItem,
+    DeliveryProfile,
+  ],
   migrations: ["dist/src/database/migrations/*.js"],
   synchronize: false,
   seeds: ["dist/src/database/seeds/**/*.js"],

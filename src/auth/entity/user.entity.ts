@@ -32,15 +32,4 @@ export class User {
   @Column({ default: false })
   adminApproved: boolean;
 
-  @Column({ nullable: true })
-  shopLicense: string;
-
-  @Column({ nullable: true })
-  vehicleType: string;
-
-  @Column({ nullable: true })
-  vehicleName: string;
-
-  @Column({ nullable: true })
-  drivingLicense: string;
 }

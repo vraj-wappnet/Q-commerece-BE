@@ -17,6 +17,8 @@ import { ShopModule } from "./shops/shops.module";
 import { ProductsModule } from "./products/products.module";
 import { CartModule } from "./cart/cart.module";
 import { CategoriesModule } from "./categories/categories.module";
+import { Order } from "./orders/entity/order.entity";
+import { OrdersNodule } from "./orders/orders.module";
 
 @Module({
   imports: [
@@ -60,6 +62,7 @@ import { CategoriesModule } from "./categories/categories.module";
     ProductsModule,
     CategoriesModule,
     CartModule,
+    OrdersNodule,
   ],
 })
 export class AppModule {}

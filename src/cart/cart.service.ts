@@ -52,6 +52,18 @@ export class CartService {
     let item = cartItems.find((i) => String(i.product.id) === productId);
     const unitPrice = Number(product.sellingPrice);
 
+    // Calculate current quantity in cart
+    const currentCartQuantity = item ? item.quantity : 0;
+    const requestedQuantity = dto.quantity;
+    const totalQuantity = currentCartQuantity + requestedQuantity;
+
+    // Check if total quantity exceeds available stock
+    if (totalQuantity > product.stockQuantity) {
+      throw new BadRequestException(
+        `Cannot add ${requestedQuantity} items. Only ${product.stockQuantity - currentCartQuantity} items available in stock.`
+      );
+    }
+
     if (item) {
       item.quantity += dto.quantity;
       item.price = unitPrice as any;
@@ -82,10 +94,18 @@ export class CartService {
     const productId = String(dto.productId);
     const item = await this.cartItemRepo.findOne({
       where: { cart: { id: cart.id }, product: { id: productId } },
+      relations: ["product"],
     });
 
     if (!item) {
       throw new BadRequestException("Item not in cart");
+    }
+
+    // Check if requested quantity exceeds available stock
+    if (dto.quantity > item.product.stockQuantity) {
+      throw new BadRequestException(
+        `Cannot update quantity to ${dto.quantity}. Only ${item.product.stockQuantity} items available in stock.`
+      );
     }
 
     if (dto.quantity <= 0) {

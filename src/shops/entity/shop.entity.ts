@@ -9,30 +9,39 @@ import {
   OneToOne,
   PrimaryGeneratedColumn,
 } from "typeorm";
+import { ApiProperty } from "@nestjs/swagger";
 
 @Entity()
 export class Shop {
+  @ApiProperty()
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
+  @ApiProperty({ example: "My Awesome Shop" })
   @Column()
   shopName: string;
 
+  @ApiProperty({ example: "123 Main Street" })
   @Column()
   addressLine1: string;
 
+  @ApiProperty({ required: false, example: "Apartment 4B" })
   @Column({ nullable: true })
   addressLine2: string;
 
+  @ApiProperty({ example: "Mumbai" })
   @Column()
   city: string;
 
+  @ApiProperty({ example: "Maharashtra" })
   @Column()
   state: string;
 
+  @ApiProperty({ example: "400001" })
   @Column()
   pinCode: string;
 
+  @ApiProperty({ default: "India", example: "India" })
   @Column({ default: "India" })
   country: string;
 
@@ -40,6 +49,14 @@ export class Shop {
   pickupAddress: string;
 
   // Legal fields
+  @ApiProperty({
+    description: "Shop license document URL or number",
+    required: false,
+    example: "https://res.cloudinary.com/example/shop-license.pdf"
+  })
+  @Column({ nullable: true })
+  shopLicense: string;
+
   @Column()
   gstNumber: string;
 

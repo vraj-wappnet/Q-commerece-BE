@@ -33,6 +33,15 @@ export class CreateShopDto {
   @IsOptional()
   pickupAddress: string;
 
+  // Legal fields
+  @ApiProperty({
+    description: "Shop license document URL or number",
+    required: false,
+    example: "https://res.cloudinary.com/example/shop-license.pdf"
+  })
+  @IsOptional()
+  shopLicense: string;
+
   // GST Validation
   @ApiProperty()
   @Matches(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, {
