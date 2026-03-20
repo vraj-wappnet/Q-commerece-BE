@@ -1,15 +1,16 @@
-import { BadRequestException, Inject, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, Inject } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Order } from "./entity/order.entity";
 import { OrderItem } from "./entity/order-item.entity";
 import { Cart } from "src/cart/entity/cart.entity";
 import { CreateOrderDto } from "./dto/create-order.dto";
-import { OrderStatus } from "src/common/enum/status.enum";
+import { NotificationType, OrderStatus } from "src/common/enum/status.enum";
 import { User } from "src/auth/entity/user.entity";
 import { DeliveryProfile } from "src/delivery_profiles/entity/delivery-profile.entity";
 import { Product } from "src/products/entity/product.entity";
 import { OrdersNodule } from "./orders.module";
+import { NotificationService } from "../notifications/notification.service";
 
 @Injectable()
 export class OrderService {
@@ -28,6 +29,8 @@ export class OrderService {
 
     @InjectRepository(DeliveryProfile)
     private deliveryProfileRepo: Repository<DeliveryProfile>,
+
+    private notificationService: NotificationService,
   ) {}
 
   async createOrder(dto: CreateOrderDto, user) {
@@ -102,6 +105,16 @@ export class OrderService {
     cart.isActive = false;
     await this.cartRepo.save(cart);
 
+    for (const item of cart.items){
+      const sellerId = item.product.shop.seller.id;
+      await this.notificationService.sendNotification({
+        user : {id : sellerId},
+        title : "New Order",
+        message : "You have a new order",
+        type : NotificationType.ORDER_PLACED
+      }) 
+    }
+
     return saveOrder;
   }
 
@@ -150,6 +163,13 @@ export class OrderService {
       );
     }
 
+    await this.notificationService.sendNotification({
+      user: { id: order.user.id },
+      title: "Order Status Updated",
+      message: `Your order status has been updated to ${OrderStatus[status]}`,
+      type: NotificationType.ORDER_STATUS
+    });
+    
     return this.orderRepo.save(order);
   }
 

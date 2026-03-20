@@ -12,6 +12,7 @@ import { SubCategory } from "src/categories/entity/sub-category.entity";
 import { Order } from "src/orders/entity/order.entity";
 import { OrderItem } from "src/orders/entity/order-item.entity";
 import { DeliveryProfile } from "src/delivery_profiles/entity/delivery-profile.entity";
+import { Notification } from "../notifications/entity/notification.entity";
 
 config();
 
@@ -34,6 +35,7 @@ const options: DataSourceOptions & SeederOptions = {
     Order,
     OrderItem,
     DeliveryProfile,
+    Notification,
   ],
   migrations: ["dist/src/database/migrations/*.js"],
   synchronize: false,

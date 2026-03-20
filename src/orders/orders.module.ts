@@ -7,9 +7,13 @@ import { Cart } from "src/cart/entity/cart.entity";
 import { Product } from "src/products/entity/product.entity";
 import { DeliveryProfile } from "src/delivery_profiles/entity/delivery-profile.entity";
 import { orderController } from "./orders.controller";
+import { NotificationModule } from "../notifications/notification.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, OrderItem, Cart, Product, DeliveryProfile])],
+  imports: [
+    TypeOrmModule.forFeature([Order, OrderItem, Cart, Product, DeliveryProfile]),
+    NotificationModule
+  ],
   providers: [OrderService],
   controllers: [orderController],
 })

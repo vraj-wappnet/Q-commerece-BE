@@ -12,3 +12,8 @@ export enum paymentMethod{
   CASH_ON_DELIVERY = 1,
   ONLINE_PAYMENT = 2,
 }
+
+export enum NotificationType {
+  ORDER_PLACED = 1,
+  ORDER_STATUS = 2,
+}

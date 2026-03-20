@@ -7,6 +7,11 @@ import { Shop } from "./shops/entity/shop.entity";
 import { Product } from "./products/entity/product.entity";
 import { Category } from "./categories/entity/category.entity";
 import { SubCategory } from "./categories/entity/sub-category.entity";
+import { Notification } from "./notifications/entity/notification.entity";
+import { Order } from "./orders/entity/order.entity";
+import { OrderItem } from "./orders/entity/order-item.entity";
+import { Cart } from "./cart/entity/cart.entity";
+import { DeliveryProfile } from "./delivery_profiles/entity/delivery-profile.entity";
 import { AuthModule } from "./auth/auth.module";
 import configuration from "./config/configuration";
 import { BullModule } from "@nestjs/bullmq";
@@ -17,8 +22,8 @@ import { ShopModule } from "./shops/shops.module";
 import { ProductsModule } from "./products/products.module";
 import { CartModule } from "./cart/cart.module";
 import { CategoriesModule } from "./categories/categories.module";
-import { Order } from "./orders/entity/order.entity";
 import { OrdersNodule } from "./orders/orders.module";
+import { NotificationModule } from "./notifications/notification.module";
 
 @Module({
   imports: [
@@ -38,7 +43,7 @@ import { OrdersNodule } from "./orders/orders.module";
         password: config.get<string>("database.password"),
         database: config.get<string>("database.name"),
         autoLoadEntities: true,
-        entities: [User, Otp, Shop, Product, Category, SubCategory],
+        entities: [User, Otp, Shop, Product, Category, SubCategory, Notification, Order, OrderItem, Cart, DeliveryProfile],
         synchronize: false,
       }),
     }),
@@ -63,6 +68,7 @@ import { OrdersNodule } from "./orders/orders.module";
     CategoriesModule,
     CartModule,
     OrdersNodule,
+    NotificationModule
   ],
 })
 export class AppModule {}
