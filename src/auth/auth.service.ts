@@ -58,7 +58,8 @@ export class AuthService {
       email: dto.email,
       otp,
     });
-    // await this.mailService.sendOtp(dto.email, otp);
+    
+    console.log('OTP job added to queue for:', dto.email);
     return { message: "Otp is sent to register email" };
   }
   async verifyOtp(email: string, otp: string) {

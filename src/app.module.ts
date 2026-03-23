@@ -24,6 +24,8 @@ import { CartModule } from "./cart/cart.module";
 import { CategoriesModule } from "./categories/categories.module";
 import { OrdersNodule } from "./orders/orders.module";
 import { NotificationModule } from "./notifications/notification.module";
+import { QueueModule } from "./queue/queue.module";
+import { DeliveryProfileModule } from "./delivery_profiles/delivery-profile.module";
 
 @Module({
   imports: [
@@ -43,7 +45,19 @@ import { NotificationModule } from "./notifications/notification.module";
         password: config.get<string>("database.password"),
         database: config.get<string>("database.name"),
         autoLoadEntities: true,
-        entities: [User, Otp, Shop, Product, Category, SubCategory, Notification, Order, OrderItem, Cart, DeliveryProfile],
+        entities: [
+          User,
+          Otp,
+          Shop,
+          Product,
+          Category,
+          SubCategory,
+          Notification,
+          Order,
+          OrderItem,
+          Cart,
+          DeliveryProfile,
+        ],
         synchronize: false,
       }),
     }),
@@ -68,7 +82,9 @@ import { NotificationModule } from "./notifications/notification.module";
     CategoriesModule,
     CartModule,
     OrdersNodule,
-    NotificationModule
+    NotificationModule,
+    QueueModule,
+    DeliveryProfileModule,
   ],
 })
 export class AppModule {}

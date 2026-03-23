@@ -59,7 +59,7 @@ export class DeliveryProfile {
   @Column({ type: 'decimal', precision: 10, scale: 6 })
   longitude: number;
 
-  @Column({ default: true })
+  @Column({ default: true, nullable: true, select: false })
   isAvailable: boolean;
 
   @CreateDateColumn()

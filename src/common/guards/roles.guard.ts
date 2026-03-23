@@ -22,6 +22,14 @@ export class RolesGuard implements CanActivate {
     const normalizedRole =
       typeof userRole === "string" ? Number(userRole) : userRole;
 
+    console.log("[RolesGuard] role-debug", {
+      path: request?.url,
+      requiredRoles: roles,
+      rawRole: userRole,
+      normalizedRole,
+      userId: user?.id,
+    });
+
     return roles.includes(normalizedRole as UserRole);
   }
 }

@@ -16,4 +16,12 @@ export enum paymentMethod{
 export enum NotificationType {
   ORDER_PLACED = 1,
   ORDER_STATUS = 2,
+  ORDER_ASSIGNED = 3,
+}
+
+export enum AssignmentStatus {
+  PENDING = 1,
+  ACCEPTED = 2,
+  REJECTED = 3,
+  EXPIRED = 4,
 }

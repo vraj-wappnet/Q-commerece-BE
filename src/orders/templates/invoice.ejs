@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice - <%= order.id %></title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        @page {
+            size: A4;
+            margin: 22mm 14mm 22mm 14mm;
+        }
+
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #1F2937;
+            background: #FFFFFF;
+            font-size: 12px;
+        }
+
+        .invoice-container {
+            width: 100%;
+        }
+
+        .order-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 28px;
+            margin-bottom: 18px;
+        }
+
+        .info-section h3 {
+            font-size: 12px;
+            color: #6B7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .info-item {
+            margin-bottom: 8px;
+        }
+
+        .info-label {
+            font-size: 11px;
+            color: #6B7280;
+            margin-bottom: 2px;
+        }
+
+        .info-value {
+            font-size: 12px;
+            font-weight: 500;
+            color: #1F2937;
+        }
+
+        .items-table {
+            margin-bottom: 18px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        thead th {
+            background: #F3F4F6;
+            padding: 10px 8px;
+            text-align: left;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #4B5563;
+            font-weight: 700;
+            border-bottom: 1px solid #D1D5DB;
+        }
+
+        tbody td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #E5E7EB;
+            vertical-align: top;
+            word-wrap: break-word;
+        }
+
+        .product-name {
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        .product-details {
+            font-size: 11px;
+            color: #6B7280;
+        }
+
+        .quantity {
+            text-align: center;
+        }
+
+        .price,
+        .total {
+            text-align: right;
+            font-weight: 600;
+        }
+
+        .summary-section {
+            margin-top: 10px;
+            margin-left: auto;
+            width: 320px;
+            border: 1px solid #D1D5DB;
+            border-radius: 10px;
+            padding: 12px;
+            page-break-inside: avoid;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .summary-row:last-child {
+            margin-bottom: 0;
+            padding-top: 8px;
+            border-top: 1px solid #D1D5DB;
+            font-weight: 700;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .status-pending { background: #FEF3C7; color: #92400E; }
+        .status-processing { background: #DBEAFE; color: #1E40AF; }
+        .status-shipped { background: #E0E7FF; color: #3730A3; }
+        .status-delivered { background: #D1FAE5; color: #065F46; }
+        .status-cancelled { background: #FEE2E2; color: #991B1B; }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <div class="order-info">
+            <div class="info-section">
+                <h3>Customer Information</h3>
+                <div class="info-item">
+                    <div class="info-label">Name</div>
+                    <div class="info-value"><%= order.customer.name || 'N/A' %></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Email</div>
+                    <div class="info-value"><%= order.customer.email || 'N/A' %></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Phone</div>
+                    <div class="info-value"><%= order.customer.phone || 'N/A' %></div>
+                </div>
+            </div>
+
+            <div class="info-section">
+                <h3>Order Details</h3>
+                <div class="info-item">
+                    <div class="info-label">Order Date</div>
+                    <div class="info-value"><%= new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %></div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Order Status</div>
+                    <div class="info-value">
+                        <span class="status-badge status-<%= order.statusClass || 'pending' %>">
+                            <%= order.statusLabel || 'Pending' %>
+                        </span>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Payment Method</div>
+                    <div class="info-value"><%= order.paymentMethodLabel || 'N/A' %></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="items-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product Details</th>
+                        <th style="width: 70px; text-align: center;">Qty</th>
+                        <th style="width: 110px; text-align: right;">Unit Price</th>
+                        <th style="width: 110px; text-align: right;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% order.items.forEach(item => { %>
+                        <tr>
+                            <td>
+                                <div class="product-name"><%= item.product.name %></div>
+                                <div class="product-details">
+                                    <%= item.product.description ? item.product.description.substring(0, 100) + '...' : 'No description available' %>
+                                </div>
+                            </td>
+                            <td class="quantity"><%= item.quantity %></td>
+                            <td class="price">₹<%= Number(item.unitPrice || 0).toFixed(2) %></td>
+                            <td class="total">₹<%= Number(item.lineTotal || 0).toFixed(2) %></td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="summary-section">
+            <div class="summary-row">
+                <div>Subtotal (<%= order.totalItems %> items)</div>
+                <div>₹<%= Number(order.totalAmountNumber ?? order.totalAmount ?? 0).toFixed(2) %></div>
+            </div>
+            <div class="summary-row">
+                <div>Delivery Fee</div>
+                <div>₹0.00</div>
+            </div>
+            <div class="summary-row">
+                <div>Tax</div>
+                <div>₹0.00</div>
+            </div>
+            <div class="summary-row">
+                <div>Total Amount</div>
+                <div>₹<%= Number(order.totalAmountNumber ?? order.totalAmount ?? 0).toFixed(2) %></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

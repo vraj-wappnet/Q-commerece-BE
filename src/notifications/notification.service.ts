@@ -1,5 +1,5 @@
 import { InjectQueue } from "@nestjs/bullmq";
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Queue } from "bullmq";
 import { Repository } from "typeorm";
@@ -32,5 +32,29 @@ export class NotificationService{
             },
             order: { createdAt: 'DESC' }
         });
+    }
+
+    async markNotificationAsRead(notificationId: string, userId: string) {
+        const notification = await this.notificationRepo.findOne({
+            where: { id: notificationId, user: { id: userId } },
+        });
+
+        if (!notification) {
+            throw new NotFoundException("Notification not found");
+        }
+
+        notification.isRead = true;
+        return this.notificationRepo.save(notification);
+    }
+
+    async deleteAllUserNotifications(userId: string) {
+        const result = await this.notificationRepo
+            .createQueryBuilder("notification")
+            .delete()
+            .from(Notification)
+            .where('notification."userId" = :userId', { userId })
+            .execute();
+
+        return { deleted: result.affected ?? 0 };
     }
 }

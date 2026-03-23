@@ -6,8 +6,10 @@ import {
   Patch,
   Post,
   Req,
+  Res,
   UseGuards,
 } from "@nestjs/common";
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiTags, ApiBody } from "@nestjs/swagger";
 import { jwtAuthGuard } from "src/common/guards/jwt-auth.guard";
 import { RolesGuard } from "src/common/guards/roles.guard";
@@ -44,6 +46,23 @@ export class orderController {
     return this.orderService.getAllOrders();
   }
 
+  @Get("seller")
+  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  getSellerOrders(@Req() req) {
+    console.log('=== SELLER ORDERS ACCESS ===');
+    console.log('User accessing seller orders:', {
+      userId: req.user.id,
+      userRole: req.user.role,
+      userRoleType: typeof req.user.role,
+      firstName: req.user.firstName,
+      email: req.user.email,
+      isVerified: req.user.isVerified,
+      adminApproved: req.user.adminApproved,
+      requiredRoles: [UserRole.ADMIN, UserRole.SELLER]
+    });
+    return this.orderService.getSellerOrder(req.user);
+  }
+
   @Get(":id")
   @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
   getOrderById(@Req() req, @Param("id") id: number) {
@@ -77,9 +96,29 @@ export class orderController {
     return this.orderService.assignDeliveryPerson(+id);
   }
 
-  @Get("seller")
-  @Roles(UserRole.SELLER)
-  getSellerOrders(@Req() req) {
-    return this.orderService.getSellerOrder(req.user);
+  @Get("invoice/:id")
+  @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
+  async generateInvoice(@Param("id") id: number, @Res() res: Response) {
+    const pdfBuffer = await this.orderService.generateInvoice(id);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=invoice-${id}.pdf`,
+      'Content-Length': pdfBuffer.length,
+    });
+
+    return res.end(pdfBuffer);
+  }
+
+  @Patch('delivery/:id/accept')
+  @Roles(UserRole.DELIVERY)
+  acceptDelivery(@Param('id') id: string , @Req() req) {
+    return this.orderService.acceptDelivery(parseInt(id), req.user);
+  }
+
+  @Patch('delivery/:id/reject')
+  @Roles(UserRole.DELIVERY)
+  rejectDelivery(@Param('id') id:string ,@Req() req){
+    return this.orderService.rejectDelivery(parseInt(id), req.user);
   }
 }

@@ -7,7 +7,7 @@ export class MailService {
   constructor(private mailerService: MailerService) {}
 
   async sendOtp(email: string, otp: string) {
-    const logoPath = join(__dirname, "..", "assets", "images", "logo.png");
+    const logoPath = join(process.cwd(), 'src/assets/images/logo.png');
     const otpArray = otp.split("");
     const otpBoxes = otpArray
       .map(

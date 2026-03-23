@@ -21,8 +21,9 @@ export class DeliveryProfileService {
 
   // CREATE
   async create(dto: CreateDeliveryProfileDto, user) {
+    const authUserId = user?.id ?? user?.userId;
     const existing = await this.repo.findOne({
-      where: { user: { id: user.userId } },
+      where: { user: { id: authUserId } },
     });
 
     if (existing) {
@@ -31,7 +32,7 @@ export class DeliveryProfileService {
 
     const profile = this.repo.create({
       ...dto,
-      user: { id: user.userId },
+      user: { id: authUserId },
     });
 
     return this.repo.save(profile);
@@ -44,6 +45,7 @@ export class DeliveryProfileService {
 
   // GET BY ID
   async findById(id: number, user) {
+    const authUserId = user?.id ?? user?.userId;
     const profile = await this.repo.findOne({
       where: { id },
       relations: ['user'],
@@ -51,7 +53,7 @@ export class DeliveryProfileService {
 
     if (!profile) throw new NotFoundException('Not found');
 
-    if (user.role !== UserRole.ADMIN && profile.user.id !== user.userId) {
+    if (user.role !== UserRole.ADMIN && profile.user.id !== authUserId) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -60,6 +62,7 @@ export class DeliveryProfileService {
 
   // UPDATE
   async update(id: number, dto: UpdateDeliveryProfileDto, user) {
+    const authUserId = user?.id ?? user?.userId;
     const profile = await this.repo.findOne({
       where: { id },
       relations: ['user'],
@@ -67,7 +70,7 @@ export class DeliveryProfileService {
 
     if (!profile) throw new NotFoundException('Not found');
 
-    if (user.role !== UserRole.ADMIN && profile.user.id !== user.userId) {
+    if (user.role !== UserRole.ADMIN && profile.user.id !== authUserId) {
       throw new ForbiddenException('Access denied');
     }
 

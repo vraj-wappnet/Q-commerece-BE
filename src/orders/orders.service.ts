@@ -4,13 +4,18 @@ import { Repository } from "typeorm";
 import { Order } from "./entity/order.entity";
 import { OrderItem } from "./entity/order-item.entity";
 import { Cart } from "src/cart/entity/cart.entity";
+import { CartItem } from "src/cart/entity/cart-item.entity";
 import { CreateOrderDto } from "./dto/create-order.dto";
-import { NotificationType, OrderStatus } from "src/common/enum/status.enum";
+import { AssignmentStatus, NotificationType, OrderStatus, paymentMethod } from "src/common/enum/status.enum";
 import { User } from "src/auth/entity/user.entity";
 import { DeliveryProfile } from "src/delivery_profiles/entity/delivery-profile.entity";
+import { DeliveryAssignment } from "src/order_delivery_assignment/entity/delivery_assignment.entity";
 import { Product } from "src/products/entity/product.entity";
-import { OrdersNodule } from "./orders.module";
 import { NotificationService } from "../notifications/notification.service";
+import { UserRole } from "src/common/enum/roles.enum";
+import { join } from "path";
+import * as ejs from 'ejs';
+import * as puppeteer from 'puppeteer';
 
 @Injectable()
 export class OrderService {
@@ -24,11 +29,17 @@ export class OrderService {
     @InjectRepository(Cart)
     private cartRepo: Repository<Cart>,
 
+    @InjectRepository(CartItem)
+    private cartItemRepo: Repository<CartItem>,
+
     @InjectRepository(Product)
     private productRepo: Repository<Product>,
 
     @InjectRepository(DeliveryProfile)
     private deliveryProfileRepo: Repository<DeliveryProfile>,
+
+    @InjectRepository(DeliveryAssignment)
+    private deliveryAssignmentRepo: Repository<DeliveryAssignment>,
 
     private notificationService: NotificationService,
   ) {}
@@ -36,7 +47,7 @@ export class OrderService {
   async createOrder(dto: CreateOrderDto, user) {
     const cart = await this.cartRepo.findOne({
       where: { user: { id: user.id }, isActive: true },
-      relations: ["items", "items.product"],
+      relations: ["items", "items.product", "items.product.shop", "items.product.shop.seller"],
     });
 
     if (!cart || cart.items.length === 0) {
@@ -105,16 +116,25 @@ export class OrderService {
     cart.isActive = false;
     await this.cartRepo.save(cart);
 
+    // Clear all cart items
+    await this.cartItemRepo.delete({ cart: { id: cart.id } });
+    console.log(`Cart cleared for user: ${user.id}, removed ${cart.items.length} items`);
+
     for (const item of cart.items){
       const sellerId = item.product.shop.seller.id;
+      console.log(`Sending notification to seller: ${sellerId} for product: ${item.product.name}`);
+      
       await this.notificationService.sendNotification({
         user : {id : sellerId},
         title : "New Order",
         message : "You have a new order",
         type : NotificationType.ORDER_PLACED
-      }) 
+      });
+      
+      console.log(`Notification sent to seller: ${sellerId}`);
     }
 
+    await this.autoAssignDelivery(saveOrder.id);
     return saveOrder;
   }
 
@@ -131,6 +151,7 @@ export class OrderService {
       where: { id, user: { id: user.id } },
       relations: ["items", "items.product"],
     });
+    return order;
   }
 
   async getAllOrders() {
@@ -231,6 +252,19 @@ export class OrderService {
 
     const orderlat = 23.0225;
     const orderLong = 72.5714;
+    const availabilityColumnCheck = await this.orderRepo.query(
+      `
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'delivery_profile'
+          AND lower(column_name) = 'isavailable'
+      ) AS "hasIsAvailable";
+      `,
+    );
+    const hasIsAvailableColumn = Boolean(availabilityColumnCheck?.[0]?.hasIsAvailable);
+    const availabilityCondition = hasIsAvailableColumn ? 'AND dp."isAvailable" = true' : '';
 
     const result = await this.orderRepo.query(`
       SELECT 
@@ -238,38 +272,63 @@ export class OrderService {
       (
       6371 * acos(
       
-      cos(radian($1)) *
-      cos(radian(dp.latitude)) *
-      cos(radian(dp.longitude) - radian($2)) +
-      sin(radian($1)) *
-      sin(radian(dp.latitude))
+      cos(radians($1::double precision)) *
+      cos(radians(dp.latitude::double precision)) *
+      cos(radians(dp.longitude::double precision) - radians($2::double precision)) +
+      sin(radians($1::double precision)) *
+      sin(radians(dp.latitude::double precision))
       )
       ) As distance
 
       FROM delivery_profile dp
       JOIN "user" u ON u.id  = dp."userId"
-      WHERE 
-     u.role = 'delivery'
-     AND u.isVerified = true
-     AND u.adminApproved = true
-     AND dp.isAvailable = true
+     WHERE 
+     u.role = $3
+     AND u."isVerified" = true
+     AND u."adminApproved" = true
+     ${availabilityCondition}
      AND dp.latitude IS NOT NULL
      AND dp.longitude IS NOT NULL
      ORDER BY distance ASC
      LIMIT 1;
-      `,[orderlat, orderLong]);
+      `,[orderlat, orderLong, UserRole.DELIVERY]);
 
       if(!result || result.length === 0){
-        throw new BadRequestException("No delivery person found");
+        const diagnostics = await this.orderRepo.query(
+          `
+          SELECT
+            COUNT(*)::int AS "totalProfiles",
+            COUNT(*) FILTER (WHERE u.role = $1)::int AS "deliveryRoleProfiles",
+            COUNT(*) FILTER (WHERE u.role = $1 AND u."isVerified" = true)::int AS "verifiedDeliveryProfiles",
+            COUNT(*) FILTER (WHERE u.role = $1 AND u."isVerified" = true AND u."adminApproved" = true)::int AS "approvedDeliveryProfiles",
+            COUNT(*) FILTER (WHERE u.role = $1 AND u."isVerified" = true AND u."adminApproved" = true AND dp.latitude IS NOT NULL AND dp.longitude IS NOT NULL)::int AS "locationReadyProfiles"
+          FROM delivery_profile dp
+          JOIN "user" u ON u.id = dp."userId";
+          `,
+          [UserRole.DELIVERY],
+        );
+
+        const stats = diagnostics?.[0];
+        throw new BadRequestException({
+          message: "No delivery person found",
+          reason:
+            "No delivery user matches all required filters (role, verification, admin approval, and location).",
+          stats,
+        });
       }
 
       const deliveryUserId = result[0].userId;
       
-      // Mark delivery person as busy
-      await this.deliveryProfileRepo.update(
-        { user: { id: deliveryUserId } },
-        { isAvailable: false }
-      );
+      if (hasIsAvailableColumn) {
+        await this.orderRepo.query(
+          `
+          UPDATE delivery_profile
+          SET "isAvailable" = false
+          WHERE "userId" = $1;
+          `,
+          [deliveryUserId],
+        );
+      }
       
       order.deliveryPerson = {id : deliveryUserId} as User;
       order.assignedAt = new Date();
@@ -308,5 +367,268 @@ export class OrderService {
     .filter(Boolean)
 
     return filteredOrders;
+  }
+
+  async generateInvoice(orderId: number) {
+    const order = await this.orderRepo.findOne({
+      where: { id: orderId },
+      relations: ['user', 'items', 'items.product']
+    });
+
+    if (!order) {
+      throw new BadRequestException("Order not found");
+    }
+
+    const formatEnumLabel = (value: string) =>
+      value
+        .split("_")
+        .filter(Boolean)
+        .map((word) => word[0] + word.slice(1).toLowerCase())
+        .join(" ");
+
+    const resolveOrderStatus = (rawStatus: unknown) => {
+      if (rawStatus === null || rawStatus === undefined) return { statusLabel: "Pending", statusClass: "pending" };
+
+      const mapped = (OrderStatus as any)[rawStatus as any];
+      const statusName =
+        typeof mapped === "string" ? mapped : typeof rawStatus === "string" ? rawStatus : String(rawStatus);
+
+      const normalized = statusName.toUpperCase();
+      const statusLabel = formatEnumLabel(normalized.replace(/\s+/g, "_"));
+
+      const statusClass =
+        normalized === "PENDING"
+          ? "pending"
+          : normalized === "DELIVERED"
+            ? "delivered"
+            : normalized === "CANCELLED"
+              ? "cancelled"
+              : normalized === "OUT_FOR_DELIVERY"
+                ? "shipped"
+                : "processing";
+
+      return { statusLabel, statusClass };
+    };
+
+    const resolvePaymentMethod = (rawPaymentMethod: unknown) => {
+      if (rawPaymentMethod === null || rawPaymentMethod === undefined) return "N/A";
+      const mapped = (paymentMethod as any)[rawPaymentMethod as any];
+      const methodName =
+        typeof mapped === "string" ? mapped : typeof rawPaymentMethod === "string" ? rawPaymentMethod : String(rawPaymentMethod);
+      return formatEnumLabel(methodName.toUpperCase());
+    };
+
+    const { statusLabel, statusClass } = resolveOrderStatus((order as any).status);
+    const paymentMethodLabel = resolvePaymentMethod((order as any).paymentMethod);
+
+    const normalizedItems = (order.items ?? []).map((item: any) => {
+      const unitPrice = Number(item.price);
+      const lineTotal = Number(item.totalPrice ?? unitPrice * Number(item.quantity ?? 0));
+
+      return {
+        ...item,
+        unitPrice,
+        lineTotal,
+      };
+    });
+
+    const totalAmountNumber = Number((order as any).totalAmount);
+
+    const customerName =
+      [order.user?.firstName, order.user?.lastName].filter(Boolean).join(" ").trim() ||
+      (order.user as any)?.name ||
+      "N/A";
+    const customerPhone = (order.user as any)?.mobile || (order.user as any)?.phone || "N/A";
+
+    // Transform data to match template expectations
+    const orderData = {
+      ...order,
+      customer: {
+        ...order.user,
+        name: customerName,
+        phone: customerPhone,
+      },
+      statusLabel,
+      statusClass,
+      paymentMethodLabel,
+      items: normalizedItems,
+      totalAmountNumber,
+    };
+
+    // Render EJS template
+    const filePath = join(process.cwd(), 'src/orders/templates/invoice.ejs');
+    const html = await ejs.renderFile(filePath, { order: orderData });
+
+    // Launch browser
+    const browser = await puppeteer.launch({
+      browser: 'chrome',
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+
+    const invoiceDate = new Date(order.createdAt).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+    const headerTemplate = `
+      <div style="width:100%; font-family: Inter, Arial, sans-serif; font-size:12px; color:#111827; padding:0 14mm; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #E5E7EB; height:78px; box-sizing:border-box;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:24px; height:24px; background:#2563EB; border-radius:5px; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;">⚡</div>
+          <div style="font-weight:700; font-size:13px;">SwiftMart Invoice #${order.id}</div>
+        </div>
+        <div style="font-size:12px;">Order Date: ${invoiceDate}</div>
+      </div>
+    `;
+
+    const footerTemplate = `
+      <div style="width:100%; font-family: Inter, Arial, sans-serif; font-size:10px; color:#6B7280; padding:0 14mm; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #E5E7EB; height:100%;">
+        <div>
+          <div>© 2026 SwiftMart Quick Commerce. All rights reserved.</div>
+          <div style="font-weight:600; color:#2563EB;">Freshness Delivered Fast ⚡</div>
+        </div>
+        <div>Page <span class="pageNumber"></span> of <span class="totalPages"></span></div>
+      </div>
+    `;
+
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      margin: {
+        top: '110px',
+        right: '14mm',
+        bottom: '60px',
+        left: '14mm'
+      },
+    });
+
+    await browser.close();
+    return pdf;
+  }
+
+  async autoAssignDelivery(orderId: number) {
+   
+    const order = await this.orderRepo.findOne({
+      where: { id: orderId }
+    })
+
+    if(!order) return;
+
+    const deliveryUsers = await this.orderRepo.query(`
+      SELECT dp."userId" 
+      FROM delivery_profile  dp
+      JOIN "user" u ON u.id = dp."userId"
+      WHERE 
+      u.role = $1
+      AND u."isVerified" = true
+      AND u."adminApproved" = true
+      AND dp."isApproved" = true
+      ORDER BY RANDOM() LIMIT 5
+      `, [UserRole.DELIVERY])
+
+      if(!deliveryUsers) return;
+
+      const firstDelivery = deliveryUsers[0];
+      const assignment = this.deliveryAssignmentRepo.create({
+        order : {id : orderId},
+        user : {id : firstDelivery.userId}
+      })
+
+      await this.deliveryAssignmentRepo.save(assignment)
+
+      await this.notificationService.sendNotification({
+         user: { id: firstDelivery.userId },
+    title: 'New Delivery Request',
+    message: `Order #${orderId} assigned to you`,
+    type: NotificationType.ORDER_ASSIGNED,
+      })
+
+
+  }
+
+  async acceptDelivery(orderId : number , user){
+    const assignment = await this.deliveryAssignmentRepo.findOne({
+      where: { 
+        order: { id: orderId },
+        user : {id : user.userId},
+        status : AssignmentStatus.PENDING
+      }
+    })
+
+    if(!assignment) {
+      throw new BadRequestException("No assignment Found")
+    };
+
+    assignment.status = AssignmentStatus.ACCEPTED;
+    await this.deliveryAssignmentRepo.save(assignment);
+
+    await this.orderRepo.update(orderId, {
+      deliveryPerson: { id: user.userId },
+      status: OrderStatus.OUT_FOR_DELIVERY
+    })
+    
+    return { message: "Delivery accepted successfully" };
+  }
+
+  async  rejectDelivery(orderId : number, user){
+    const assignment = await this.deliveryAssignmentRepo.findOne({
+      where: { 
+        order: { id: orderId },
+        user : {id : user.userId},
+        status : AssignmentStatus.PENDING
+      }
+    })
+
+    if(!assignment) {
+      throw new BadRequestException("No assignment Found")
+    };
+
+    assignment.status = AssignmentStatus.REJECTED;
+    await this.deliveryAssignmentRepo.save(assignment);
+
+    return { message: "Delivery rejected successfully" };
+  }
+
+  async assignNextDelivery(orderId : number){
+   const rejectedIds = await this.deliveryAssignmentRepo.find({
+    where : {order : {id : orderId}},
+    relations : ['user']
+   }) 
+
+   const rejectUserIds = rejectedIds.map(a => a.user.id)
+
+   const nextDelivery = await this.orderRepo.query(`
+    SELECT dp."userId"
+    FROM delivery_profile dp
+    JOIN "user" u ON u.id = dp."userId"
+    WHERE 
+    u.role = $1
+    AND dp."isAvailable" = true
+    AND dp."userId" NOT IN (${rejectUserIds.length ? rejectUserIds.join(','): 0})
+    LIMIT 1`, [UserRole.DELIVERY])
+
+    if(!nextDelivery.length){
+      return;
+    }
+
+    const newAssignment = await this.deliveryAssignmentRepo.create({
+      order: { id: orderId },
+      user: { id: nextDelivery[0].userId },
+    })
+
+    await this.deliveryAssignmentRepo.save(newAssignment)
+
+    await this.notificationService.sendNotification({
+      user : { id : nextDelivery[0].userId},
+      title: 'New Delivery Request',
+    message: `Order #${orderId} assigned to you`,
+    type: NotificationType.ORDER_ASSIGNED,
+    })
+
   }
 }
