@@ -10,11 +10,13 @@ import { DeliveryProfile } from "src/delivery_profiles/entity/delivery-profile.e
 import { DeliveryAssignment } from "src/order_delivery_assignment/entity/delivery_assignment.entity";
 import { orderController } from "./orders.controller";
 import { NotificationModule } from "../notifications/notification.module";
+import { DeliveryQueueModule } from "src/order_delivery_assignment/delivery_assignment.module";
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, OrderItem, Cart, CartItem, Product, DeliveryProfile, DeliveryAssignment]),
-    NotificationModule
+    NotificationModule,
+    DeliveryQueueModule
   ],
   providers: [OrderService],
   controllers: [orderController],

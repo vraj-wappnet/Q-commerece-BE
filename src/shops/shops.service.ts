@@ -69,7 +69,7 @@ export class ShopsService {
 
     if (search) {
       qb.andWhere(
-        "LOWER(shop.shopName) LIKE LOWER(:search) OR CAST(shop.id as TEXT) LIKE LOWER(:search) LIKE : search",
+        "LOWER(shop.shopName) LIKE LOWER(:search) OR CAST(shop.id as TEXT) LIKE :search",
         { search: `%${search}%` },
       );
     }

@@ -6,7 +6,7 @@ import { OrderItem } from "./entity/order-item.entity";
 import { Cart } from "src/cart/entity/cart.entity";
 import { CartItem } from "src/cart/entity/cart-item.entity";
 import { CreateOrderDto } from "./dto/create-order.dto";
-import { AssignmentStatus, NotificationType, OrderStatus, paymentMethod } from "src/common/enum/status.enum";
+import { AssignmentStatus, NotificationType, OrderStatus, PaymentStatus, paymentMethod } from "src/common/enum/status.enum";
 import { User } from "src/auth/entity/user.entity";
 import { DeliveryProfile } from "src/delivery_profiles/entity/delivery-profile.entity";
 import { DeliveryAssignment } from "src/order_delivery_assignment/entity/delivery_assignment.entity";
@@ -16,6 +16,9 @@ import { UserRole } from "src/common/enum/roles.enum";
 import { join } from "path";
 import * as ejs from 'ejs';
 import * as puppeteer from 'puppeteer';
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
+import { StripeService } from "src/stripe/stripe.service";
 
 @Injectable()
 export class OrderService {
@@ -41,8 +44,11 @@ export class OrderService {
     @InjectRepository(DeliveryAssignment)
     private deliveryAssignmentRepo: Repository<DeliveryAssignment>,
 
+    @InjectQueue('delivery')
+    private deliveryQueue: Queue,
+
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async createOrder(dto: CreateOrderDto, user) {
     const cart = await this.cartRepo.findOne({
@@ -63,10 +69,15 @@ export class OrderService {
       }
     }
 
+    // Calculate delivery charge
+    const deliveryCharge = cart.totalAmount < 600 ? 50 : 0;
+    const finalAmount = parseFloat((cart.totalAmount + deliveryCharge).toFixed(2));
+
     const order = this.orderRepo.create({
       user: { id: user.id },
       totalItems: cart.totalItems,
-      totalAmount: cart.totalAmount,
+      totalAmount: finalAmount,
+      deliveryCharge: parseFloat(deliveryCharge.toFixed(2)),
       addressLine1: dto.addressLine1,
       addressLine2: dto.addressLine2,
       city: dto.city,
@@ -76,6 +87,9 @@ export class OrderService {
       latitude: dto.latitude,
       longitude: dto.longitude,
       paymentMethod: dto.paymentMethod,
+      paymentStatus: dto.paymentMethod === paymentMethod.CASH_ON_DELIVERY 
+        ? PaymentStatus.PENDING 
+        : PaymentStatus.PENDING,
     });
 
     const saveOrder = await this.orderRepo.save(order);
@@ -104,7 +118,7 @@ export class OrderService {
       const updatedProduct = await this.productRepo.findOne({
         where: { id: orderItem.product.id }
       });
-      
+
       if (updatedProduct && updatedProduct.stockQuantity <= 0) {
         await this.productRepo.update(
           { id: orderItem.product.id },
@@ -118,20 +132,16 @@ export class OrderService {
 
     // Clear all cart items
     await this.cartItemRepo.delete({ cart: { id: cart.id } });
-    console.log(`Cart cleared for user: ${user.id}, removed ${cart.items.length} items`);
 
-    for (const item of cart.items){
+    for (const item of cart.items) {
       const sellerId = item.product.shop.seller.id;
-      console.log(`Sending notification to seller: ${sellerId} for product: ${item.product.name}`);
-      
+
       await this.notificationService.sendNotification({
-        user : {id : sellerId},
-        title : "New Order",
-        message : "You have a new order",
-        type : NotificationType.ORDER_PLACED
+        user: { id: sellerId },
+        title: "New Order",
+        message: "You have a new order",
+        type: NotificationType.ORDER_PLACED
       });
-      
-      console.log(`Notification sent to seller: ${sellerId}`);
     }
 
     await this.autoAssignDelivery(saveOrder.id);
@@ -146,7 +156,7 @@ export class OrderService {
     });
   }
 
-  async getOrderById(id: number, user) {
+  async getOrderById(id: string, user) {
     const order = await this.orderRepo.findOne({
       where: { id, user: { id: user.id } },
       relations: ["items", "items.product"],
@@ -161,8 +171,8 @@ export class OrderService {
     });
   }
 
-  async updateOrderStatus(id: number, status: OrderStatus) {
-    const order = await this.orderRepo.findOne({ 
+  async updateOrderStatus(id: string, status: OrderStatus) {
+    const order = await this.orderRepo.findOne({
       where: { id },
       relations: ['deliveryPerson']
     });
@@ -175,9 +185,9 @@ export class OrderService {
     order.status = status;
 
     // When order is completed, free the delivery person
-    if (status === OrderStatus.DELIVERED && 
-        previousStatus !== OrderStatus.DELIVERED && 
-        order.deliveryPerson) {
+    if (status === OrderStatus.DELIVERED &&
+      previousStatus !== OrderStatus.DELIVERED &&
+      order.deliveryPerson) {
       await this.deliveryProfileRepo.update(
         { user: { id: order.deliveryPerson.id } },
         { isAvailable: true }
@@ -190,11 +200,11 @@ export class OrderService {
       message: `Your order status has been updated to ${OrderStatus[status]}`,
       type: NotificationType.ORDER_STATUS
     });
-    
+
     return this.orderRepo.save(order);
   }
 
-  async cancelOrder(id: number, user, reason: string) {
+  async cancelOrder(id: string, user, reason: string) {
     const order = await this.orderRepo.findOne({
       where: { id, user: { id: user.id } },
       relations: ["items", "items.product"],
@@ -225,7 +235,7 @@ export class OrderService {
       const updatedProduct = await this.productRepo.findOne({
         where: { id: orderItem.product.id }
       });
-      
+
       if (updatedProduct && updatedProduct.stockQuantity > 0 && !updatedProduct.isAvailable) {
         await this.productRepo.update(
           { id: orderItem.product.id },
@@ -241,12 +251,12 @@ export class OrderService {
     return this.orderRepo.save(order);
   }
 
-  async assignDeliveryPerson(orderId : number){
+  async assignDeliveryPerson(orderId: string) {
     const order = await this.orderRepo.findOne({
-      where : {id : orderId}
+      where: { id: orderId }
     })
 
-    if(!order){
+    if (!order) {
       throw new BadRequestException("Order not found");
     }
 
@@ -291,11 +301,11 @@ export class OrderService {
      AND dp.longitude IS NOT NULL
      ORDER BY distance ASC
      LIMIT 1;
-      `,[orderlat, orderLong, UserRole.DELIVERY]);
+      `, [orderlat, orderLong, UserRole.DELIVERY]);
 
-      if(!result || result.length === 0){
-        const diagnostics = await this.orderRepo.query(
-          `
+    if (!result || result.length === 0) {
+      const diagnostics = await this.orderRepo.query(
+        `
           SELECT
             COUNT(*)::int AS "totalProfiles",
             COUNT(*) FILTER (WHERE u.role = $1)::int AS "deliveryRoleProfiles",
@@ -305,74 +315,74 @@ export class OrderService {
           FROM delivery_profile dp
           JOIN "user" u ON u.id = dp."userId";
           `,
-          [UserRole.DELIVERY],
-        );
+        [UserRole.DELIVERY],
+      );
 
-        const stats = diagnostics?.[0];
-        throw new BadRequestException({
-          message: "No delivery person found",
-          reason:
-            "No delivery user matches all required filters (role, verification, admin approval, and location).",
-          stats,
-        });
-      }
+      const stats = diagnostics?.[0];
+      throw new BadRequestException({
+        message: "No delivery person found",
+        reason:
+          "No delivery user matches all required filters (role, verification, admin approval, and location).",
+        stats,
+      });
+    }
 
-      const deliveryUserId = result[0].userId;
-      
-      if (hasIsAvailableColumn) {
-        await this.orderRepo.query(
-          `
+    const deliveryUserId = result[0].userId;
+
+    if (hasIsAvailableColumn) {
+      await this.orderRepo.query(
+        `
           UPDATE delivery_profile
           SET "isAvailable" = false
           WHERE "userId" = $1;
           `,
-          [deliveryUserId],
-        );
-      }
-      
-      order.deliveryPerson = {id : deliveryUserId} as User;
-      order.assignedAt = new Date();
-      order.status = OrderStatus.ASSIGNED;
+        [deliveryUserId],
+      );
+    }
 
-      return this.orderRepo.save(order);
+    order.deliveryPerson = { id: deliveryUserId } as User;
+    order.assignedAt = new Date();
+    order.status = OrderStatus.ASSIGNED;
+
+    return this.orderRepo.save(order);
   }
 
-  async getSellerOrder (user){
+  async getSellerOrder(user) {
     const orders = await this.orderRepo
-    .createQueryBuilder('order')
-    .leftJoinAndSelect('order.items', 'item')
-    .leftJoinAndSelect('item.product','product')
-    .leftJoinAndSelect('product.shop','shop')
-    .leftJoinAndSelect('shop.seller' ,'seller')
-    .leftJoinAndSelect('order.user', 'customer')
-    .orderBy('order.createdAt', 'DESC')
-    .getMany();
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.items', 'item')
+      .leftJoinAndSelect('item.product', 'product')
+      .leftJoinAndSelect('product.shop', 'shop')
+      .leftJoinAndSelect('shop.seller', 'seller')
+      .leftJoinAndSelect('order.user', 'customer')
+      .orderBy('order.createdAt', 'DESC')
+      .getMany();
 
     const filteredOrders = orders
-    .map((order) => {
-      const sellerItems = order.items.filter(
-        (item) => item.product?.shop?.seller?.id === user.id,
-      )
+      .map((order) => {
+        const sellerItems = order.items.filter(
+          (item) => item.product?.shop?.seller?.id === user.id,
+        )
 
-      if(sellerItems.length === 0) return null;
+        if (sellerItems.length === 0) return null;
 
-      return {
-        orderId : order.id,
-        customer : order.user,
-        status : order.status,
-        createdAt : order.createdAt,
-        items : sellerItems,
-      }
-    })
-    .filter(Boolean)
+        return {
+          orderId: order.id,
+          customer: order.user,
+          status: order.status,
+          createdAt: order.createdAt,
+          items: sellerItems,
+        }
+      })
+      .filter(Boolean)
 
     return filteredOrders;
   }
 
-  async generateInvoice(orderId: number) {
+  async generateInvoice(orderId: string) {
     const order = await this.orderRepo.findOne({
       where: { id: orderId },
-      relations: ['user', 'items', 'items.product']
+      relations: ['user', 'items', 'items.product', 'items.product.shop', 'items.product.shop.seller']
     });
 
     if (!order) {
@@ -473,15 +483,7 @@ export class OrderService {
       month: 'short',
       day: 'numeric',
     });
-    const headerTemplate = `
-      <div style="width:100%; font-family: Inter, Arial, sans-serif; font-size:12px; color:#111827; padding:0 14mm; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #E5E7EB; height:78px; box-sizing:border-box;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div style="width:24px; height:24px; background:#2563EB; border-radius:5px; color:#FFFFFF; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;">⚡</div>
-          <div style="font-weight:700; font-size:13px;">SwiftMart Invoice #${order.id}</div>
-        </div>
-        <div style="font-size:12px;">Order Date: ${invoiceDate}</div>
-      </div>
-    `;
+   
 
     const footerTemplate = `
       <div style="width:100%; font-family: Inter, Arial, sans-serif; font-size:10px; color:#6B7280; padding:0 14mm; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #E5E7EB; height:100%;">
@@ -497,7 +499,6 @@ export class OrderService {
       format: 'A4',
       printBackground: true,
       displayHeaderFooter: true,
-      headerTemplate,
       footerTemplate,
       margin: {
         top: '110px',
@@ -511,56 +512,63 @@ export class OrderService {
     return pdf;
   }
 
-  async autoAssignDelivery(orderId: number) {
-   
-    const order = await this.orderRepo.findOne({
-      where: { id: orderId }
-    })
-
-    if(!order) return;
-
-    const deliveryUsers = await this.orderRepo.query(`
-      SELECT dp."userId" 
-      FROM delivery_profile  dp
-      JOIN "user" u ON u.id = dp."userId"
-      WHERE 
-      u.role = $1
-      AND u."isVerified" = true
-      AND u."adminApproved" = true
-      AND dp."isApproved" = true
-      ORDER BY RANDOM() LIMIT 5
-      `, [UserRole.DELIVERY])
-
-      if(!deliveryUsers) return;
-
-      const firstDelivery = deliveryUsers[0];
-      const assignment = this.deliveryAssignmentRepo.create({
-        order : {id : orderId},
-        user : {id : firstDelivery.userId}
-      })
-
-      await this.deliveryAssignmentRepo.save(assignment)
-
-      await this.notificationService.sendNotification({
-         user: { id: firstDelivery.userId },
-    title: 'New Delivery Request',
-    message: `Order #${orderId} assigned to you`,
-    type: NotificationType.ORDER_ASSIGNED,
-      })
-
-
-  }
-
-  async acceptDelivery(orderId : number , user){
-    const assignment = await this.deliveryAssignmentRepo.findOne({
-      where: { 
+  async autoAssignDelivery(orderId: string) {
+    const existing = await this.deliveryAssignmentRepo.findOne({
+      where: {
         order: { id: orderId },
-        user : {id : user.userId},
-        status : AssignmentStatus.PENDING
+        status: AssignmentStatus.PENDING
       }
     })
 
-    if(!assignment) {
+    if (existing) return;
+
+    const deliveryuser = await this.orderRepo.query(
+      `
+    SELECT dp."userId" 
+    FROM delivery_profile dp
+    JOIN "user" u ON u.id = dp."userId"
+    WHERE 
+      u.role = $1
+      AND dp."isAvailable" = true
+    ORDER BY RANDOM()
+    LIMIT 1
+      `, [UserRole.DELIVERY],
+    );
+
+    if (!deliveryuser.length) return;
+
+    const deliveryId = deliveryuser[0].userId;
+
+    const assignment = this.deliveryAssignmentRepo.create({
+      order: { id: orderId },
+      user: { id: deliveryId }
+    })
+
+    await this.deliveryAssignmentRepo.save(assignment);
+    await this.notificationService.sendNotification({
+      user: { id: deliveryId },
+      title: "New Delivery Request",
+      message: `Order #${orderId}`,
+      type: NotificationType.ORDER_ASSIGNED
+    })
+
+    await this.deliveryQueue.add(
+      'delivery-timeout',
+      { orderId, deliveryId },
+      { delay: 3000, removeOnComplete: true },
+    )
+  }
+
+  async acceptDelivery(orderId: string, user) {
+    const assignment = await this.deliveryAssignmentRepo.findOne({
+      where: {
+        order: { id: orderId },
+        user: { id: user.userId },
+        status: AssignmentStatus.PENDING
+      }
+    })
+
+    if (!assignment) {
       throw new BadRequestException("No assignment Found")
     };
 
@@ -571,48 +579,55 @@ export class OrderService {
       deliveryPerson: { id: user.userId },
       status: OrderStatus.OUT_FOR_DELIVERY
     })
-    
+
     return { message: "Delivery accepted successfully" };
   }
 
-  async  rejectDelivery(orderId : number, user){
+  async rejectDelivery(orderId: string, user) {
     const assignment = await this.deliveryAssignmentRepo.findOne({
-      where: { 
+      where: {
         order: { id: orderId },
-        user : {id : user.userId},
-        status : AssignmentStatus.PENDING
+        user: { id: user.userId },
+        status: AssignmentStatus.PENDING
       }
     })
 
-    if(!assignment) {
+    if (!assignment) {
       throw new BadRequestException("No assignment Found")
     };
 
     assignment.status = AssignmentStatus.REJECTED;
     await this.deliveryAssignmentRepo.save(assignment);
 
-    return { message: "Delivery rejected successfully" };
+    await this.assignDeliveryPerson(orderId);
+
+    return { message: 'Delivery rejected & reassigned' };
   }
 
-  async assignNextDelivery(orderId : number){
-   const rejectedIds = await this.deliveryAssignmentRepo.find({
-    where : {order : {id : orderId}},
-    relations : ['user']
-   }) 
+  async assignNextDelivery(orderId: string) {
+    const rejectedIds = await this.deliveryAssignmentRepo.find({
+      where: { order: { id: orderId } },
+      relations: ['user']
+    })
 
-   const rejectUserIds = rejectedIds.map(a => a.user.id)
+    const rejectUserIds = rejectedIds.map(a => a.user.id)
 
-   const nextDelivery = await this.orderRepo.query(`
+    const nextDelivery = await this.orderRepo.query(
+    `
     SELECT dp."userId"
     FROM delivery_profile dp
     JOIN "user" u ON u.id = dp."userId"
     WHERE 
-    u.role = $1
-    AND dp."isAvailable" = true
-    AND dp."userId" NOT IN (${rejectUserIds.length ? rejectUserIds.join(','): 0})
-    LIMIT 1`, [UserRole.DELIVERY])
+      u.role = $1
+      AND dp."isAvailable" = true
+      AND dp."userId" != ALL($2)
+    LIMIT 1
+    `,
+    [UserRole.DELIVERY, rejectUserIds],
+  );
 
-    if(!nextDelivery.length){
+
+    if (!nextDelivery.length) {
       return;
     }
 
@@ -624,11 +639,62 @@ export class OrderService {
     await this.deliveryAssignmentRepo.save(newAssignment)
 
     await this.notificationService.sendNotification({
-      user : { id : nextDelivery[0].userId},
+      user: { id: nextDelivery[0].userId },
       title: 'New Delivery Request',
-    message: `Order #${orderId} assigned to you`,
-    type: NotificationType.ORDER_ASSIGNED,
+      message: `Order #${orderId} assigned to you`,
+      type: NotificationType.ORDER_ASSIGNED,
     })
 
+  }
+
+  async confirmPayment(orderId : string){
+    const order = await this.orderRepo.findOne({
+      where : {
+        id : orderId
+      }
+    })
+
+    if(!order){
+      throw new BadRequestException("Order Not Found")
+    }
+
+    order.isPaid = true;
+    order.paymentStatus = PaymentStatus.COMPLETED;
+    order.status = OrderStatus.CONFIRMED;
+
+    await this.orderRepo.save(order);
+
+    //assign delivery after payment
+    await this.autoAssignDelivery(order.id)
+      return { message: 'Payment successful & order confirmed' };
+
+  }
+
+  async updatePaymentStatus(orderId: string, paymentStatus: PaymentStatus) {
+    const order = await this.orderRepo.findOne({
+      where: { id: orderId }
+    });
+
+    if (!order) {
+      throw new BadRequestException("Order not found");
+    }
+
+    order.paymentStatus = paymentStatus;
+    
+    // Update isPaid based on payment status
+    if (paymentStatus === PaymentStatus.COMPLETED) {
+      order.isPaid = true;
+    } else if (paymentStatus === PaymentStatus.FAILED || paymentStatus === PaymentStatus.REFUNDED) {
+      order.isPaid = false;
+    }
+
+    await this.notificationService.sendNotification({
+      user: { id: order.user.id },
+      title: "Payment Status Updated",
+      message: `Your payment status has been updated to ${PaymentStatus[paymentStatus]}`,
+      type: NotificationType.ORDER_STATUS
+    });
+
+    return this.orderRepo.save(order);
   }
 }

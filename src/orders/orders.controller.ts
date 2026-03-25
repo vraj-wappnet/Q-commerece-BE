@@ -18,6 +18,7 @@ import { CreateOrderDto } from "./dto/create-order.dto";
 import { Roles } from "src/common/decorators/roles.decorator";
 import { UserRole } from "src/common/enum/roles.enum";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
+import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
 import { cancelOrderDto } from "./dto/cancel-order.dto";
 
 @ApiTags("orders")
@@ -49,23 +50,12 @@ export class orderController {
   @Get("seller")
   @Roles(UserRole.ADMIN, UserRole.SELLER)
   getSellerOrders(@Req() req) {
-    console.log('=== SELLER ORDERS ACCESS ===');
-    console.log('User accessing seller orders:', {
-      userId: req.user.id,
-      userRole: req.user.role,
-      userRoleType: typeof req.user.role,
-      firstName: req.user.firstName,
-      email: req.user.email,
-      isVerified: req.user.isVerified,
-      adminApproved: req.user.adminApproved,
-      requiredRoles: [UserRole.ADMIN, UserRole.SELLER]
-    });
     return this.orderService.getSellerOrder(req.user);
   }
 
   @Get(":id")
   @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
-  getOrderById(@Req() req, @Param("id") id: number) {
+  getOrderById(@Req() req, @Param("id") id: string) {
     return this.orderService.getOrderById(id, req.user);
   }
 
@@ -73,17 +63,27 @@ export class orderController {
   @Roles(UserRole.ADMIN, UserRole.DELIVERY)
   @ApiBody({ type: UpdateOrderStatusDto })
   updateOrderStatus(
-    @Param("id") id: number,
+    @Param("id") id: string,
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.orderService.updateOrderStatus(id, dto.status);
+  }
+
+  @Patch(":id/payment-status")
+  @Roles(UserRole.ADMIN)
+  @ApiBody({ type: UpdatePaymentStatusDto })
+  updatePaymentStatus(
+    @Param("id") id: string,
+    @Body() dto: UpdatePaymentStatusDto,
+  ) {
+    return this.orderService.updatePaymentStatus(id, dto.paymentStatus);
   }
 
   @Patch(":id/cancel")
   @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
   @ApiBody({ type: cancelOrderDto })
   cancelOrder(
-    @Param("id") id: number,
+    @Param("id") id: string,
     @Req() req,
     @Body() dto: cancelOrderDto,
   ) {
@@ -92,13 +92,13 @@ export class orderController {
 
   @Patch(":id/assign-delivery")
   @Roles(UserRole.ADMIN)
-  assignDelivery(@Param("id") id: number) {
-    return this.orderService.assignDeliveryPerson(+id);
+  assignDelivery(@Param("id") id: string) {
+    return this.orderService.assignDeliveryPerson(id);
   }
 
   @Get("invoice/:id")
   @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
-  async generateInvoice(@Param("id") id: number, @Res() res: Response) {
+  async generateInvoice(@Param("id") id: string, @Res() res: Response) {
     const pdfBuffer = await this.orderService.generateInvoice(id);
 
     res.set({
@@ -113,12 +113,12 @@ export class orderController {
   @Patch('delivery/:id/accept')
   @Roles(UserRole.DELIVERY)
   acceptDelivery(@Param('id') id: string , @Req() req) {
-    return this.orderService.acceptDelivery(parseInt(id), req.user);
+    return this.orderService.acceptDelivery(id, req.user);
   }
 
   @Patch('delivery/:id/reject')
   @Roles(UserRole.DELIVERY)
   rejectDelivery(@Param('id') id:string ,@Req() req){
-    return this.orderService.rejectDelivery(parseInt(id), req.user);
+    return this.orderService.rejectDelivery(id, req.user);
   }
 }

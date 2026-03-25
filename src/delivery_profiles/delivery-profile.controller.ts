@@ -21,30 +21,33 @@ import { UserRole } from 'src/common/enum/roles.enum';
 import { jwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 
 @ApiTags('Delivery Profile')
-@ApiBearerAuth()
-@UseGuards(jwtAuthGuard, RolesGuard)
 @Controller('delivery-profile')
 export class DeliveryProfileController {
   constructor(private service: DeliveryProfileService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.DELIVERY)
   create(@Body() dto: CreateDeliveryProfileDto, @Req() req) {
     return this.service.create(dto, req.user);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(jwtAuthGuard, RolesGuard)
   @Get()
   @Roles(UserRole.ADMIN)
   findAll() {
     return this.service.findAll();
   }
 
+  @ApiBearerAuth()
+  @UseGuards(jwtAuthGuard, RolesGuard)
   @Get(':id')
   @Roles(UserRole.ADMIN, UserRole.DELIVERY)
   findById(@Param('id') id: number, @Req() req) {
     return this.service.findById(id, req.user);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(jwtAuthGuard, RolesGuard)
   @Patch(':id')
   @Roles(UserRole.ADMIN, UserRole.DELIVERY)
   update(

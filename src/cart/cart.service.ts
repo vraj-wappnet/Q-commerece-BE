@@ -50,7 +50,7 @@ export class CartService {
     const cart = await this.getOrCreateCart(user);
     const cartItems = cart.items ?? [];
     let item = cartItems.find((i) => String(i.product.id) === productId);
-    const unitPrice = Number(product.sellingPrice);
+    const unitPrice = parseFloat(Number(product.sellingPrice).toFixed(2));
 
     // Calculate current quantity in cart
     const currentCartQuantity = item ? item.quantity : 0;
@@ -67,7 +67,7 @@ export class CartService {
     if (item) {
       item.quantity += dto.quantity;
       item.price = unitPrice as any;
-      item.totalPrice = item.quantity * unitPrice;
+      item.totalPrice = parseFloat((item.quantity * unitPrice).toFixed(2));
       await this.cartItemRepo.save(item);
     } else {
       item = this.cartItemRepo.create({
@@ -75,7 +75,7 @@ export class CartService {
         product,
         quantity: dto.quantity,
         price: unitPrice as any,
-        totalPrice: dto.quantity * unitPrice,
+        totalPrice: parseFloat((dto.quantity * unitPrice).toFixed(2)),
       });
       await this.cartItemRepo.save(item);
     }
@@ -112,7 +112,7 @@ export class CartService {
       await this.cartItemRepo.delete(item.id);
     } else {
       item.quantity = dto.quantity;
-      item.totalPrice = item.quantity * Number(item.price);
+      item.totalPrice = parseFloat((item.quantity * Number(item.price)).toFixed(2));
       await this.cartItemRepo.save(item);
     }
     return this.recalculateCart(cart.id);
@@ -151,7 +151,7 @@ export class CartService {
       totalItems += Number(item.quantity) || 0;
     }
 
-    cart.totalAmount = totalAmount;
+    cart.totalAmount = parseFloat(totalAmount.toFixed(2));
     cart.totalItems = totalItems;
 
     await this.cartRepo.save(cart);

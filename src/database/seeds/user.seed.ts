@@ -14,28 +14,74 @@ export default class CreateUsers implements Seeder {
 
     const password = await bcrypt.hash("Password@123", 10);
 
-    const rolesArray = [UserRole.CUSTOMER, UserRole.DELIVERY, UserRole.SELLER];
+    // Get existing sellers count
+    const existingSellersCount = await userRepo.count({
+      where: { role: UserRole.SELLER, isVerified: true, adminApproved: true }
+    });
 
     const users: Partial<User>[] = [];
 
-    for (let i = 1; i <= 20; i++) {
-      const role = rolesArray[i % rolesArray.length];
+    // Create 12 approved sellers for shops (only if we have less than 12)
+    const sellersToCreate = Math.max(0, 12 - existingSellersCount);
+    
+    for (let i = 1; i <= sellersToCreate; i++) {
       const firstName = faker.person.firstName();
       const lastName = faker.person.lastName();
+      const timestamp = Date.now();
 
       users.push({
         firstName,
         lastName,
-        email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@yopmail.com`,
+        email: `seller${timestamp}${i}@yopmail.com`,
         mobile: faker.string.numeric(10),
         password: password,
-        role: role,
+        role: UserRole.SELLER,
         isVerified: true,
-        adminApproved: false,
+        adminApproved: true,
       });
     }
 
-    await userRepo.save(users);
-    console.log("20 Users Seeded Successfully");
+    // Create 5 customers
+    for (let i = 1; i <= 5; i++) {
+      const firstName = faker.person.firstName();
+      const lastName = faker.person.lastName();
+      const timestamp = Date.now();
+
+      users.push({
+        firstName,
+        lastName,
+        email: `customer${timestamp}${i}@yopmail.com`,
+        mobile: faker.string.numeric(10),
+        password: password,
+        role: UserRole.CUSTOMER,
+        isVerified: true,
+        adminApproved: true,
+      });
+    }
+
+    // Create 5 delivery persons
+    for (let i = 1; i <= 5; i++) {
+      const firstName = faker.person.firstName();
+      const lastName = faker.person.lastName();
+      const timestamp = Date.now();
+
+      users.push({
+        firstName,
+        lastName,
+        email: `delivery${timestamp}${i}@yopmail.com`,
+        mobile: faker.string.numeric(10),
+        password: password,
+        role: UserRole.DELIVERY,
+        isVerified: true,
+        adminApproved: true,
+      });
+    }
+
+    if (users.length > 0) {
+      await userRepo.save(users);
+      console.log(`Created ${sellersToCreate} new sellers, 5 customers, and 5 delivery persons`);
+    } else {
+      console.log('Already have 12 or more sellers. No new users created.');
+    }
   }
 }

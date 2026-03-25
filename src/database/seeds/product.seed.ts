@@ -19,7 +19,6 @@ export default class CreateProducts implements Seeder {
     const shops = await dataSource.getRepository(Shop).find();
 
     if (categories.length === 0 || shops.length === 0) {
-      console.log("Please run category and shop seeders first");
       return;
     }
 
@@ -158,6 +157,5 @@ export default class CreateProducts implements Seeder {
     }
 
     await productRepo.save(products);
-    console.log(`${products.length} Products Seeded Successfully`);
   }
 }

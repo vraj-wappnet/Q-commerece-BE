@@ -19,11 +19,11 @@ export default class CreateShops implements Seeder {
     });
 
     // Get existing shops to avoid duplicates
-    const existingShops = await shopRepo.find();
+    const existingShops = await shopRepo.find({ relations: ['seller'] });
     const existingSellerIds = existingShops.map(shop => shop.seller?.id).filter(Boolean);
 
     if (sellers.length === 0) {
-      console.log("No approved sellers found. Please run user seeder first and approve some sellers.");
+      console.log('No sellers found. Please run user seeder first.');
       return;
     }
 
@@ -31,18 +31,37 @@ export default class CreateShops implements Seeder {
     const availableSellers = sellers.filter(seller => !existingSellerIds.includes(seller.id));
 
     if (availableSellers.length === 0) {
-      console.log("All sellers already have shops.");
+      console.log('All sellers already have shops.');
       return;
     }
 
+    // Predefined shop names for variety
+    const shopNames = [
+      "Fresh Mart Grocery",
+      "Green Valley Organics",
+      "Daily Needs Store",
+      "Quick Stop Supermarket",
+      "Urban Bazaar",
+      "Healthy Harvest",
+      "Corner Store Express",
+      "Prime Provisions",
+      "Smart Shop",
+      "Neighborhood Grocers",
+      "Fresh & Fast Market",
+      "City Center Store"
+    ];
+
     const shops: Partial<Shop>[] = [];
 
-    // Create shops for available sellers
-    for (let i = 0; i < Math.min(availableSellers.length, 10); i++) {
+    // Create shops for available sellers (up to 12)
+    const shopsToCreate = Math.min(availableSellers.length, 12);
+    
+    for (let i = 0; i < shopsToCreate; i++) {
       const seller = availableSellers[i];
+      const shopIndex = existingShops.length + i;
       
       shops.push({
-        shopName: `${faker.company.name()} Store`,
+        shopName: shopNames[shopIndex % shopNames.length] || `${faker.company.name()} Store`,
         addressLine1: faker.location.streetAddress(),
         addressLine2: faker.location.secondaryAddress(),
         city: faker.location.city(),
@@ -50,7 +69,7 @@ export default class CreateShops implements Seeder {
         pinCode: faker.location.zipCode('######'),
         country: "India",
         pickupAddress: faker.location.streetAddress(),
-        shopLicense: `https://res.cloudinary.com/demo/shop-license-${i + 1}.pdf`,
+        shopLicense: `https://res.cloudinary.com/demo/shop-license-${shopIndex + 1}.pdf`,
         gstNumber: `27AAAPL1234C${faker.string.alphanumeric(5).toUpperCase()}`,
         panNumber: faker.string.alphanumeric(10).toUpperCase(),
         businessRegistrationNumber: `UDYAM-${faker.location.state().substring(0, 3)}-${faker.number.int({ min: 1000000, max: 9999999 })}`,
@@ -59,7 +78,7 @@ export default class CreateShops implements Seeder {
         accountNumber: faker.finance.accountNumber(),
         ifscCode: `${faker.string.alpha(4).toUpperCase()}0${faker.location.state().substring(0, 3).toUpperCase()}0${faker.number.int({ min: 100, max: 999 })}`,
         bankName: faker.company.name(),
-        cancelledChequeImage: `https://res.cloudinary.com/demo/cheque-${i + 1}.jpg`,
+        cancelledChequeImage: `https://res.cloudinary.com/demo/cheque-${shopIndex + 1}.jpg`,
         alternatePhone: faker.phone.number(),
         whatsappNumber: faker.phone.number(),
         websiteUrl: faker.internet.url(),
@@ -69,7 +88,9 @@ export default class CreateShops implements Seeder {
       });
     }
 
-    await shopRepo.save(shops);
-    console.log(`${shops.length} Shops Seeded Successfully`);
+    if (shops.length > 0) {
+      await shopRepo.save(shops);
+      console.log(`Successfully created ${shops.length} new shops`);
+    }
   }
 }

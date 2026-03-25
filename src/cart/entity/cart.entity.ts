@@ -24,7 +24,7 @@ export class Cart {
   @OneToMany(() => CartItem, (item) => item.cart, { cascade: true })
   items: CartItem[];
 
-  @Column({ type: 'decimal', default: 0 })
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   totalAmount: number;
 
   @Column({ default: 0 })

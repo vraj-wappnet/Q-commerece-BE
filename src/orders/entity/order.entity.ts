@@ -9,7 +9,7 @@ import {
 } from "typeorm";
 
 import { User } from "src/auth/entity/user.entity";
-import { OrderStatus, paymentMethod } from "src/common/enum/status.enum";
+import { OrderStatus, PaymentStatus, paymentMethod } from "src/common/enum/status.enum";
 import { OrderItem } from "./order-item.entity";
 import { ApiProperty } from "@nestjs/swagger";
 
@@ -17,10 +17,10 @@ import { ApiProperty } from "@nestjs/swagger";
 export class Order {
   @ApiProperty({
     description: "Unique order identifier",
-    example: 1
+    example: "550e8400-e29b-41d4-a716-446655440000"
   })
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @ApiProperty({
     description: "User who placed the order",
@@ -43,8 +43,17 @@ export class Order {
     example: 299.99,
     type: "number"
   })
-  @Column("decimal")
+  @Column("decimal", { precision: 10, scale: 2 })
   totalAmount: number;
+
+  @ApiProperty({
+    description: "Delivery charge for the order",
+    example: 50.00,
+    type: "number",
+    default: 0
+  })
+  @Column("decimal", { precision: 10, scale: 2, default: 0 })
+  deliveryCharge: number;
 
   @ApiProperty({
     description: "Total number of items in the order",
@@ -78,6 +87,19 @@ export class Order {
     nullable: true
   })
   paymentMethod: paymentMethod;
+
+  @ApiProperty({
+    description: "Payment status of the order",
+    enum: PaymentStatus,
+    example: PaymentStatus.PENDING,
+    default: PaymentStatus.PENDING
+  })
+  @Column({
+    type: "enum",
+    enum: PaymentStatus,
+    default: PaymentStatus.PENDING,
+  })
+  paymentStatus: PaymentStatus;
 
   @ApiProperty({
     description: "First line of delivery address",

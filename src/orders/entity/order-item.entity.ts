@@ -46,7 +46,7 @@ export class OrderItem {
     example: 49.99,
     type: "number"
   })
-  @Column('decimal')
+  @Column('decimal', { precision: 10, scale: 2 })
   price: number;
 
   @ApiProperty({
@@ -54,6 +54,6 @@ export class OrderItem {
     example: 99.98,
     type: "number"
   })
-  @Column('decimal')
+  @Column('decimal', { precision: 10, scale: 2 })
   totalPrice: number;
 }

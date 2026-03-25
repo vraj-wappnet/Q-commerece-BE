@@ -34,7 +34,5 @@ export default class CreateCategories implements Seeder {
       .values(names.map((name) => ({ name })))
       .orIgnore()
       .execute();
-
-    console.log(`Categories seeded: ${names.length}`);
   }
 }

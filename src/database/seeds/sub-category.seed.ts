@@ -92,6 +92,5 @@ export default class CreateSubCategories implements Seeder {
       await subCategoryRepo.save(toCreate);
     }
 
-    console.log(`SubCategories seeded: ${toCreate.length}`);
   }
 }

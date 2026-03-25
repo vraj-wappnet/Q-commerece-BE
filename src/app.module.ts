@@ -12,6 +12,7 @@ import { Order } from "./orders/entity/order.entity";
 import { OrderItem } from "./orders/entity/order-item.entity";
 import { Cart } from "./cart/entity/cart.entity";
 import { DeliveryProfile } from "./delivery_profiles/entity/delivery-profile.entity";
+import { DeliveryAssignment } from "./order_delivery_assignment/entity/delivery_assignment.entity";
 import { AuthModule } from "./auth/auth.module";
 import configuration from "./config/configuration";
 import { BullModule } from "@nestjs/bullmq";
@@ -26,6 +27,8 @@ import { OrdersNodule } from "./orders/orders.module";
 import { NotificationModule } from "./notifications/notification.module";
 import { QueueModule } from "./queue/queue.module";
 import { DeliveryProfileModule } from "./delivery_profiles/delivery-profile.module";
+import { DeliveryQueueModule } from "./order_delivery_assignment/delivery_assignment.module";
+import { PaymentModule } from "./payments/payment.module";
 
 @Module({
   imports: [
@@ -57,6 +60,7 @@ import { DeliveryProfileModule } from "./delivery_profiles/delivery-profile.modu
           OrderItem,
           Cart,
           DeliveryProfile,
+          DeliveryAssignment,
         ],
         synchronize: false,
       }),
@@ -85,6 +89,8 @@ import { DeliveryProfileModule } from "./delivery_profiles/delivery-profile.modu
     NotificationModule,
     QueueModule,
     DeliveryProfileModule,
+    DeliveryQueueModule,
+    PaymentModule,
   ],
 })
 export class AppModule {}
