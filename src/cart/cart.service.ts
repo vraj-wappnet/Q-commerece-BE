@@ -6,6 +6,7 @@ import { CartItem } from "./entity/cart-item.entity";
 import { Product } from "src/products/entity/product.entity";
 import { AddToCartDto } from "./dto/add-to-cart.dto";
 import { UpdateCartDto } from "./dto/update-cart.dto";
+import { User } from "src/auth/entity/user.entity";
 
 @Injectable()
 export class CartService {
@@ -19,6 +20,75 @@ export class CartService {
     @InjectRepository(Product)
     private productRepo: Repository<Product>,
   ) {}
+
+  async getAllCarts(query: any) {
+    const {
+      search,
+      userId,
+      isActive,
+      minTotalAmount,
+      maxTotalAmount,
+      sortBy = "createdAt",
+      sortOrder = "DESC",
+      page = 1,
+      limit = 10,
+    } = query ?? {};
+
+    const safeLimit = Math.min(Number(limit) || 10, 100);
+    const safePage = Math.max(Number(page) || 1, 1);
+
+    const qb = this.cartRepo
+      .createQueryBuilder("cart")
+      .leftJoinAndSelect("cart.user", "user")
+      .leftJoinAndSelect("cart.items", "items")
+      .leftJoinAndSelect("items.product", "product");
+
+    if (search) {
+      qb.andWhere(
+        "(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search)",
+        { search: `%${search}%` }
+      );
+    }
+
+    if (userId) {
+      qb.andWhere("user.id = :userId", { userId });
+    }
+
+    if (isActive !== undefined) {
+      qb.andWhere("cart.isActive = :isActive", { isActive });
+    }
+
+    if (minTotalAmount) {
+      qb.andWhere("cart.totalAmount >= :minTotalAmount", { minTotalAmount });
+    }
+
+    if (maxTotalAmount) {
+      qb.andWhere("cart.totalAmount <= :maxTotalAmount", { maxTotalAmount });
+    }
+
+    // Avoid SQL injection on column name
+    const allowedSortBy = new Set([
+      "createdAt",
+      "updatedAt",
+      "totalAmount",
+      "totalItems",
+    ]);
+    const sortColumn = allowedSortBy.has(sortBy) ? sortBy : "createdAt";
+
+    qb.orderBy(`cart.${sortColumn}`, sortOrder ?? "DESC");
+    qb.skip((safePage - 1) * safeLimit).take(safeLimit);
+
+    const [data, total] = await qb.getManyAndCount();
+    const totalPages = Math.ceil(total / safeLimit);
+
+    return {
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages,
+      data,
+    };
+  }
 
   async getOrCreateCart(user) {
     let cart = await this.cartRepo.findOne({

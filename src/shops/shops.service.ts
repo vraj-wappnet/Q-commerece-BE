@@ -36,9 +36,10 @@ export class ShopsService {
     return this.shopRepo.save(shop);
   }
 
-  async updateShop(dto: updateShopDto, sellerId: string, user) {
+  async updateShop(dto: updateShopDto, shopId: string, user) {
     const shop = await this.shopRepo.findOne({
-      where: { seller: { id: sellerId } },
+      where: { id: shopId },
+      relations: ["seller"],
     });
 
     if (!shop) {
@@ -49,7 +50,11 @@ export class ShopsService {
       throw new BadRequestException("Unauthorized to update this shop");
     }
 
-    await this.shopRepo.update(shop.id, dto);
+    await this.shopRepo.update(shopId, dto);
+    return this.shopRepo.findOne({
+      where: { id: shopId },
+      relations: ["seller"],
+    });
   }
 
   async getAllShops(query: any) {

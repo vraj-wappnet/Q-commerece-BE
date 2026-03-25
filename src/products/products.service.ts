@@ -5,11 +5,6 @@ import { Product } from "./entity/product.entity";
 import { Shop } from "src/shops/entity/shop.entity";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UserRole } from "src/common/enum/roles.enum";
-
-
-
-
-
 import { User } from "src/auth/entity/user.entity";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { FilterProductDto } from "./dto/filter-product.dto";

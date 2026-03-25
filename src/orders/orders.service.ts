@@ -18,7 +18,7 @@ import * as ejs from 'ejs';
 import * as puppeteer from 'puppeteer';
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import { StripeService } from "src/stripe/stripe.service";
+import * as QRCode from 'qrcode';
 
 @Injectable()
 export class OrderService {
@@ -70,8 +70,9 @@ export class OrderService {
     }
 
     // Calculate delivery charge
-    const deliveryCharge = cart.totalAmount < 600 ? 50 : 0;
-    const finalAmount = parseFloat((cart.totalAmount + deliveryCharge).toFixed(2));
+    const cartTotal = Number(cart.totalAmount) || 0;
+    const deliveryCharge = cartTotal < 600 ? 50 : 0;
+    const finalAmount = Number((cartTotal + deliveryCharge).toFixed(2));
 
     const order = this.orderRepo.create({
       user: { id: user.id },
@@ -466,8 +467,10 @@ export class OrderService {
     };
 
     // Render EJS template
-    const filePath = join(process.cwd(), 'src/orders/templates/invoice.ejs');
-    const html = await ejs.renderFile(filePath, { order: orderData });
+    const invoiceTemplatePath = join(process.cwd(), 'src/orders/templates/invoice.ejs');
+    const qrData = `https://fencelike-degressively-madaline.ngrok-free.dev/api/orders/${order.id}`;
+    const qrCode = await QRCode.toDataURL(qrData);
+    const html = await ejs.renderFile(invoiceTemplatePath, { order: orderData, qrCode });
 
     // Launch browser
     const browser = await puppeteer.launch({
@@ -579,6 +582,25 @@ export class OrderService {
       deliveryPerson: { id: user.userId },
       status: OrderStatus.OUT_FOR_DELIVERY
     })
+
+    // Send notification to customer about delivery assignment acceptance
+    const order = await this.orderRepo.findOne({
+      where: { id: orderId },
+      relations: ["user"]
+    });
+
+    if (order?.user) {
+      await this.notificationService.sendNotification({
+        userId: order.user.id,
+        type: NotificationType.ORDER_STATUS,
+        title: "Delivery Assignment Accepted",
+        message: `Your order #${orderId} has been accepted by the delivery person and is now out for delivery.`,
+        data: {
+          orderId: orderId,
+          status: OrderStatus.OUT_FOR_DELIVERY
+        }
+      });
+    }
 
     return { message: "Delivery accepted successfully" };
   }

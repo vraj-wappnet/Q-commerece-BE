@@ -5,6 +5,8 @@ import { Category } from "./entity/category.entity";
 import { SubCategory } from "./entity/sub-category.entity";
 import { CreateCategoryDto } from "./dto/create-category.dto";
 import { CreateSubCategoryDto } from "./dto/create-subcategory.dto";
+import { UpdateCategoryDto } from "./dto/update-category.dto";
+import { UpdateSubCategoryDto } from "./dto/update-subcategory.dto";
 import { Product } from "src/products/entity/product.entity";
 
 @Injectable()
@@ -107,5 +109,64 @@ export class CategoriesService {
 
     await this.subCategoryRepo.delete(id);
     return { message: "SubCategory deleted successfully" };
+  }
+
+  async updateCategory(id: string, dto: UpdateCategoryDto) {
+    const category = await this.categoryRepo.findOne({ where: { id } });
+    if (!category) throw new BadRequestException("Category not found");
+
+    if (dto.name) {
+      const trimmedName = dto.name.trim();
+      const existing = await this.categoryRepo.findOne({ 
+        where: { name: trimmedName } 
+      });
+      if (existing && existing.id !== id) {
+        throw new BadRequestException("Category name already exists");
+      }
+      category.name = trimmedName;
+    }
+
+    await this.categoryRepo.save(category);
+    return this.categoryRepo.findOne({
+      where: { id },
+      relations: ["subCategories"],
+    });
+  }
+
+  async updateSubCategory(id: string, dto: UpdateSubCategoryDto) {
+    const sub = await this.subCategoryRepo.findOne({
+      where: { id },
+      relations: ["category"],
+    });
+    if (!sub) throw new BadRequestException("SubCategory not found");
+
+    if (dto.name) {
+      const trimmedName = dto.name.trim();
+      const existing = await this.subCategoryRepo.findOne({
+        where: { 
+          name: trimmedName,
+          category: { id: dto.categoryId || sub.category.id }
+        },
+        relations: ["category"],
+      });
+      if (existing && existing.id !== id) {
+        throw new BadRequestException("SubCategory name already exists in this category");
+      }
+      sub.name = trimmedName;
+    }
+
+    if (dto.categoryId) {
+      const category = await this.categoryRepo.findOne({ 
+        where: { id: dto.categoryId } 
+      });
+      if (!category) throw new BadRequestException("Category not found");
+      sub.category = category;
+    }
+
+    await this.subCategoryRepo.save(sub);
+    return this.subCategoryRepo.findOne({
+      where: { id },
+      relations: ["category"],
+    });
   }
 }

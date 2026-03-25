@@ -9,16 +9,16 @@ import {
   ParseIntPipe,
   UseGuards,
   Req,
+  Query,
 } from '@nestjs/common';
-
 import {
   ApiTags,
   ApiBearerAuth,
 } from '@nestjs/swagger';
-
 import { CartService } from './cart.service';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartDto } from './dto/update-cart.dto';
+import { FilterCartDto } from './dto/filter-cart.dto';
 import { jwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -45,6 +45,12 @@ export class CartController {
   @Get()
   getCart(@Req() req) {
     return this.cartService.getOrCreateCart(req.user);
+  }
+
+  @Get('all')
+  @Roles(UserRole.ADMIN)
+  getAllCarts(@Query() query: FilterCartDto) {
+    return this.cartService.getAllCarts(query);
   }
 
   @Delete('item/:id')

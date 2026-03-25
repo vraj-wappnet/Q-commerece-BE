@@ -309,6 +309,18 @@
                 <p class="name"><%= order.customer.name || 'N/A' %></p>
                 <p><%= order.customer.email || 'N/A' %></p>
                 <p><%= order.customer.phone || 'N/A' %></p>
+                <% if (order.billingAddressLine1) { %>
+                    <p><%= order.billingAddressLine1 %></p>
+                <% } %>
+                <% if (order.billingAddressLine2) { %>
+                    <p><%= order.billingAddressLine2 %></p>
+                <% } %>
+                <% if (order.billingCity && order.billingState) { %>
+                    <p><%= order.billingCity %><%= order.billingState ? ', ' : '' %><%= order.billingState || '' %></p>
+                <% } %>
+                <% if (order.billingPincode) { %>
+                    <p><%= order.billingCountry || '' %> - <%= order.billingPincode %></p>
+                <% } %>
             </div>
 
             <div class="address-box">
@@ -318,8 +330,12 @@
                 <% if (order.addressLine2) { %>
                     <p><%= order.addressLine2 %></p>
                 <% } %>
-                <p><%= order.city || '' %><%= order.city && order.state ? ', ' : '' %><%= order.state || '' %></p>
-                <p><%= order.country || '' %> - <%= order.pincode || '' %></p>
+                <% if (order.city && order.state) { %>
+                    <p><%= order.city %><%= order.state ? ', ' : '' %><%= order.state || '' %></p>
+                <% } %>
+                <% if (order.pincode) { %>
+                    <p><%= order.country || '' %> - <%= order.pincode %></p>
+                <% } %>
             </div>
 
             <div class="address-box">
@@ -413,8 +429,16 @@
 
         <!-- Footer Note -->
         <div class="footer-note">
-            <p>Thank you for shopping with SwiftMart!</p>
-            <p>For any queries, contact us at support@swiftmart.com</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div style="text-align: left;">
+                    <p>Thank you for shopping with SwiftMart!</p>
+                    <p>For any queries, contact us at support@swiftmart.com</p>
+                </div>
+                <div style="text-align: right;">
+                    <p style="font-size:12px; margin-bottom: 8px;">Scan to view order</p>
+                    <img src="<%= qrCode %>" width="120" style="border: 1px solid #E5E7EB; border-radius: 4px;" />
+                </div>
+            </div>
         </div>
     </div>
 </body>
