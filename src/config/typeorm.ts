@@ -39,10 +39,10 @@ const options: DataSourceOptions & SeederOptions = {
     DeliveryAssignment,
     Notification,
   ],
-  migrations: ["dist/src/database/migrations/*.js"],
+  migrations: ["src/database/migrations/*.ts"],
   synchronize: false,
-  seeds: ["dist/src/database/seeds/**/*.js"],
-  factories: ["dist/src/database/factories/**/*.js"],
+  seeds: ["dist/src/database/seeds/**/*.ts"],
+  factories: ["dist/src/database/factories/**/*.ts"],
 };
 
 export default new DataSource(options);

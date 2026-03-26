@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   ManyToOne,
   Column,
+  Index,
 } from 'typeorm';
 
 import { Order } from './order.entity';
@@ -10,6 +11,9 @@ import { Product } from 'src/products/entity/product.entity';
 import { ApiProperty } from '@nestjs/swagger';
 
 @Entity()
+@Index(["order"])
+@Index(["product"])
+
 export class OrderItem {
   @ApiProperty({
     description: "Unique order item identifier",

@@ -7,12 +7,13 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
-
 import { User } from 'src/auth/entity/user.entity';
 import { CartItem } from './cart-item.entity';
 
 @Entity()
+@Index(["user", "isActive"])
 export class Cart {
   @PrimaryGeneratedColumn()
   id: number;

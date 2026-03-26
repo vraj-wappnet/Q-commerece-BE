@@ -6,6 +6,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from "typeorm";
 
 import { User } from "src/auth/entity/user.entity";
@@ -14,6 +15,10 @@ import { OrderItem } from "./order-item.entity";
 import { ApiProperty } from "@nestjs/swagger";
 
 @Entity()
+@Index(["user", "createdAt"])
+@Index(["status"])
+@Index(["paymentStatus"])
+
 export class Order {
   @ApiProperty({
     description: "Unique order identifier",

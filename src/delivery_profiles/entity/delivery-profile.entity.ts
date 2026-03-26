@@ -6,12 +6,16 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 
 
 import { User } from 'src/auth/entity/user.entity';
 
 @Entity()
+@Index(["isAvailable"])
+@Index(["latitude", "longitude"])
+
 export class DeliveryProfile {
   @PrimaryGeneratedColumn()
   id: number;

@@ -3,12 +3,15 @@ import {
   Controller,
   Post,
   UploadedFile,
+  UploadedFiles,
   UseInterceptors,
 } from "@nestjs/common";
-import { FileInterceptor } from "@nestjs/platform-express";
+import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { ApiBody, ApiConsumes, ApiTags } from "@nestjs/swagger";
 import { CloudinaryService } from "src/cloudinary/cloudinary.service";
 
+@ApiTags("Media Upload")
+@Controller("media")
 @ApiTags("Media Upload")
 @Controller("media")
 export class MediaController {
@@ -20,22 +23,46 @@ export class MediaController {
     schema: {
       type: "object",
       properties: {
-        file: {
-          type: "string",
-          format: "binary",
+        files: {
+          type: "array",
+          items: {
+            type: "string",
+            format: "binary",
+          },
         },
       },
     },
   })
-  @UseInterceptors(FileInterceptor("file"))
-  async uploadImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException("No file uploaded");
+  @UseInterceptors(FilesInterceptor("files", 5)) 
+  async uploadMedia(@UploadedFiles() files: Express.Multer.File[]) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException("No files uploaded");
     }
-    const uploaded = await this.cloudinaryService.uploadImage(file);
+
+    const results: Array<{
+      originalName: string;
+      url: string;
+      type: string;
+    }> = [];
+
+    for (const file of files) {
+      try {
+        const uploaded = await this.cloudinaryService.uploadMedia(file);
+
+        results.push({
+          originalName: file.originalname,
+          url: uploaded.secure_url,
+          type: file.mimetype,
+        });
+      } catch (error) {
+        throw new BadRequestException(`Failed to upload ${file.originalname}: ${error.message}`);
+      }
+    }
+
     return {
-      message: "Image Uploaded Successfully",
-      url: uploaded.secure_url,
+      message: "Files uploaded successfully",
+      count: results.length,
+      data: results,
     };
   }
 }
