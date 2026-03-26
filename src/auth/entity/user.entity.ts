@@ -1,5 +1,5 @@
 import { UserRole } from "src/common/enum/roles.enum";
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn } from "typeorm";
 
 @Entity()
 export class User {
@@ -32,4 +32,6 @@ export class User {
   @Column({ default: false })
   adminApproved: boolean;
 
+  @CreateDateColumn()
+  createdAt: Date;
 }

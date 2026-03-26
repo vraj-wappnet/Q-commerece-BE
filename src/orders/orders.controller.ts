@@ -10,7 +10,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import type { Response } from 'express';
-import { ApiBearerAuth, ApiTags, ApiBody } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiTags, ApiBody, ApiOkResponse } from "@nestjs/swagger";
 import { jwtAuthGuard } from "src/common/guards/jwt-auth.guard";
 import { RolesGuard } from "src/common/guards/roles.guard";
 import { OrderService } from "./orders.service";
@@ -20,6 +20,7 @@ import { UserRole } from "src/common/enum/roles.enum";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
 import { cancelOrderDto } from "./dto/cancel-order.dto";
+import { TrackOrderVm } from "./vm/track-order.vm";
 
 @ApiTags("orders")
 @ApiBearerAuth()
@@ -120,5 +121,28 @@ export class orderController {
   @Roles(UserRole.DELIVERY)
   rejectDelivery(@Param('id') id:string ,@Req() req){
     return this.orderService.rejectDelivery(id, req.user);
+  }
+}
+
+@ApiTags("orders")
+@Controller("orders")
+export class orderTrackingController {
+  constructor(private orderService: OrderService) {}
+
+  @Get("track/:id")
+  async trackOrder(@Param("id") id: string, @Res() res: Response) {
+    const html = await this.orderService.renderOrderTrackingPage(id);
+
+    res.set({
+      'Content-Type': 'text/html; charset=utf-8',
+    });
+
+    return res.send(html);
+  }
+
+  @Get("track/:id/json")
+  @ApiOkResponse({ type: TrackOrderVm })
+  trackOrderJson(@Param("id") id: string) {
+    return this.orderService.getTrackOrderVm(id);
   }
 }

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Tracking</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --primary: #0f766e;
+      --accent: #f59e0b;
+      --border: #e5e7eb;
+      --success: #16a34a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(180deg, #ecfeff 0%, var(--bg) 45%);
+      color: var(--text);
+      padding: 16px;
+    }
+
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(17, 24, 39, 0.06);
+    }
+
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 22px;
+    }
+
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+
+    .badges {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .badge {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+    }
+
+    .badge.primary {
+      color: #115e59;
+      background: #ccfbf1;
+      border-color: #99f6e4;
+    }
+
+    .badge.accent {
+      color: #92400e;
+      background: #fef3c7;
+      border-color: #fde68a;
+    }
+
+    .badge.success {
+      color: #14532d;
+      background: #dcfce7;
+      border-color: #bbf7d0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .row h3 {
+      margin: 0 0 4px 0;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+
+    .row p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      font-weight: 600;
+    }
+
+    .right { text-align: right; }
+
+    .totals {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .totals .line {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .totals .grand {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--primary);
+      padding-top: 6px;
+      border-top: 1px dashed var(--border);
+    }
+
+    @media (max-width: 640px) {
+      .grid { grid-template-columns: 1fr; }
+      body { padding: 12px; }
+      .card { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="card">
+      <h1>Order Tracking</h1>
+      <p class="sub">Order ID: <%= orderId %></p>
+      <div class="badges">
+        <span class="badge primary">Order: <%= orderStatusLabel %></span>
+        <span class="badge accent">Payment: <%= paymentStatusLabel %></span>
+        <span class="badge <%= isPaid ? "success" : "accent" %>"><%= isPaid ? "Paid" : "Unpaid" %></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="grid">
+        <div class="row">
+          <h3>Customer</h3>
+          <p><%= customerName %></p>
+          <p><%= customerPhone %></p>
+          <p><%= customerEmail %></p>
+        </div>
+        <div class="row">
+          <h3>Delivery Address</h3>
+          <p><%= address %></p>
+        </div>
+        <div class="row">
+          <h3>Placed On</h3>
+          <p><%= createdAt %></p>
+        </div>
+        <div class="row">
+          <h3>Last Updated</h3>
+          <p><%= updatedAt %></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="grid">
+        <div class="row">
+          <h3>Payment Method</h3>
+          <p><%= paymentMethodLabel %></p>
+        </div>
+        <div class="row">
+          <h3>Total Items</h3>
+          <p><%= totalItems %></p>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="right">Qty</th>
+            <th class="right">Unit</th>
+            <th class="right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% for (const item of items) { %>
+            <tr>
+              <td><%= item.name %></td>
+              <td class="right"><%= item.quantity %></td>
+              <td class="right">Rs. <%= item.unitPrice.toFixed(2) %></td>
+              <td class="right">Rs. <%= item.lineTotal.toFixed(2) %></td>
+            </tr>
+          <% } %>
+        </tbody>
+      </table>
+
+      <div class="totals">
+        <div class="line">
+          <span>Delivery Charge</span>
+          <span>Rs. <%= deliveryCharge.toFixed(2) %></span>
+        </div>
+        <div class="line grand">
+          <span>Grand Total</span>
+          <span>Rs. <%= totalAmount.toFixed(2) %></span>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

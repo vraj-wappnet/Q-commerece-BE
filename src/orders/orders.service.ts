@@ -19,6 +19,7 @@ import * as puppeteer from 'puppeteer';
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import * as QRCode from 'qrcode';
+import { TrackOrderVm } from "./vm/track-order.vm";
 
 @Injectable()
 export class OrderService {
@@ -163,6 +164,143 @@ export class OrderService {
       relations: ["items", "items.product"],
     });
     return order;
+  }
+
+  async trackOrder(id: string) {
+    const order = await this.orderRepo.findOne({
+      where: { id },
+      relations: ["items", "items.product", "user"],
+      select: {
+        id: true,
+        status: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        totalAmount: true,
+        deliveryCharge: true,
+        totalItems: true,
+        createdAt: true,
+        updatedAt: true,
+        addressLine1: true,
+        addressLine2: true,
+        city: true,
+        state: true,
+        country: true,
+        pincode: true,
+        latitude: true,
+        longitude: true,
+        isPaid: true,
+        items: {
+          id: true,
+          quantity: true,
+          price: true,
+          product: {
+            id: true,
+            name: true,
+            images: true,
+          },
+        },
+        user: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          mobile: true,
+        },
+      },
+    });
+
+    if (!order) {
+      throw new BadRequestException('Order not found');
+    }
+
+    return order;
+  }
+
+  async getTrackOrderVm(id: string): Promise<TrackOrderVm> {
+    const order = await this.trackOrder(id);
+
+    return {
+      ...order,
+      totalAmount: Number(order.totalAmount),
+      deliveryCharge: Number(order.deliveryCharge),
+      totalItems: Number(order.totalItems),
+      latitude: Number(order.latitude),
+      longitude: Number(order.longitude),
+      items: (order.items || []).map((item: any) => ({
+        ...item,
+        price: Number(item.price),
+        totalPrice: Number(item.totalPrice),
+      })),
+    } as TrackOrderVm;
+  }
+
+  async renderOrderTrackingPage(id: string) {
+    const order = await this.trackOrder(id);
+
+    const formatEnumLabel = (value: string) =>
+      value
+        .toLowerCase()
+        .split("_")
+        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+        .join(" ");
+
+    const orderStatusRaw = OrderStatus[order.status as unknown as number] ?? "PENDING";
+    const paymentStatusRaw = PaymentStatus[order.paymentStatus as unknown as number] ?? "PENDING";
+    const paymentMethodRaw = paymentMethod[order.paymentMethod as unknown as number] ?? "N/A";
+
+    const orderStatusLabel = formatEnumLabel(orderStatusRaw);
+    const paymentStatusLabel = formatEnumLabel(paymentStatusRaw);
+    const paymentMethodLabel = paymentMethodRaw === "N/A" ? "N/A" : formatEnumLabel(paymentMethodRaw);
+
+    const normalizedItems = (order.items || []).map((item: any) => {
+      const unitPrice = Number(item.price || 0);
+      const quantity = Number(item.quantity || 0);
+      const lineTotal = Number(item.totalPrice ?? unitPrice * quantity);
+
+      return {
+        name: item.product?.name || "Item",
+        quantity,
+        unitPrice,
+        lineTotal,
+      };
+    });
+
+    const address = [
+      order.addressLine1,
+      order.addressLine2,
+      order.city,
+      order.state,
+      order.country,
+      order.pincode,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const trackingTemplatePath = join(process.cwd(), "src/orders/templates/order-tracking.ejs");
+
+    return ejs.renderFile(trackingTemplatePath, {
+      orderId: order.id,
+      orderStatusLabel,
+      paymentStatusLabel,
+      paymentMethodLabel,
+      createdAt: new Date(order.createdAt).toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+      updatedAt: new Date(order.updatedAt).toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }),
+      customerName: [order.user?.firstName, order.user?.lastName].filter(Boolean).join(" ").trim() || "Customer",
+      customerPhone: order.user?.mobile || "N/A",
+      customerEmail: order.user?.email || "N/A",
+      totalItems: Number(order.totalItems || 0),
+      totalAmount: Number(order.totalAmount || 0),
+      deliveryCharge: Number(order.deliveryCharge || 0),
+      isPaid: Boolean(order.isPaid),
+      address: address || "N/A",
+      items: normalizedItems,
+    });
   }
 
   async getAllOrders() {
@@ -468,7 +606,13 @@ export class OrderService {
 
     // Render EJS template
     const invoiceTemplatePath = join(process.cwd(), 'src/orders/templates/invoice.ejs');
-    const qrData = `https://fencelike-degressively-madaline.ngrok-free.dev/api/orders/${order.id}`;
+    const configuredBaseUrl = (process.env.BASE_URL || 'https://fencelike-degressively-madaline.ngrok-free.dev').replace(/\/+$/, '');
+    const apiPrefix = (process.env.API_PREFIX || '').replace(/^\/+|\/+$/g, '');
+    const baseUrl = apiPrefix ? configuredBaseUrl : configuredBaseUrl.replace(/\/api$/i, '');
+    const trackingPath = apiPrefix
+      ? `/${apiPrefix}/orders/track/${order.id}`
+      : `/orders/track/${order.id}`;
+    const qrData = `${baseUrl}${trackingPath}`;
     const qrCode = await QRCode.toDataURL(qrData);
     const html = await ejs.renderFile(invoiceTemplatePath, { order: orderData, qrCode });
 
