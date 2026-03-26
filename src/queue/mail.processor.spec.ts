@@ -1,6 +1,6 @@
 import { Test, TestingModule } from "@nestjs/testing";
 import { MailProcessor } from "./mail.processor";
-import { MailService } from "src/mail/mail.service";
+import { MailService } from "src/modules/mail/mail.service";
 import { Job } from "bullmq";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 

@@ -1,6 +1,6 @@
 import { DataSource } from "typeorm";
 import { Seeder, SeederFactoryManager } from "typeorm-extension";
-import { Category } from "../../categories/entity/category.entity";
+import { Category } from "../../modules/categories/entity/category.entity";
 
 export default class CreateCategories implements Seeder {
   public async run(

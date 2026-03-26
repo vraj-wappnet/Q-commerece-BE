@@ -1,6 +1,6 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
-import { MailModule } from "src/mail/mail.module";
+import { MailModule } from "src/modules/mail/mail.module";
 import { MailProcessor } from "./mail.processor";
 
 @Module({

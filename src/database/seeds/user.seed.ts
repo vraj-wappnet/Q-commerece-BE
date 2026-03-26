@@ -1,6 +1,6 @@
 import { DataSource } from "typeorm";
 import { Seeder, SeederFactoryManager } from "typeorm-extension";
-import { User } from "../../auth/entity/user.entity";
+import { User } from "../../modules/auth/entity/user.entity";
 import { UserRole } from "../../common/enum/roles.enum";
 import * as bcrypt from "bcrypt";
 import { faker } from "@faker-js/faker";

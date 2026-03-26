@@ -4,7 +4,7 @@ import { Roles } from "src/common/decorators/roles.decorator";
 import { jwtAuthGuard } from "src/common/guards/jwt-auth.guard";
 import { RolesGuard } from "src/common/guards/roles.guard";
 import { UserRole } from "src/common/enum/roles.enum";
-import { userServices } from "src/users/users.service";
+import { userServices } from "src/modules/users/users.service";
 
 @ApiTags("admin")
 @ApiBearerAuth()

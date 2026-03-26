@@ -1,0 +1,230 @@
+import { BadRequestException, Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Cart } from "./entity/cart.entity";
+import { Repository } from "typeorm";
+import { CartItem } from "./entity/cart-item.entity";
+import { Product } from "src/modules/products/entity/product.entity";
+import { AddToCartDto } from "./dto/add-to-cart.dto";
+import { UpdateCartDto } from "./dto/update-cart.dto";
+import { User } from "src/modules/auth/entity/user.entity";
+
+@Injectable()
+export class CartService {
+  constructor(
+    @InjectRepository(Cart)
+    private cartRepo: Repository<Cart>,
+
+    @InjectRepository(CartItem)
+    private cartItemRepo: Repository<CartItem>,
+
+    @InjectRepository(Product)
+    private productRepo: Repository<Product>,
+  ) {}
+
+  async getAllCarts(query: any) {
+    const {
+      search,
+      userId,
+      isActive,
+      minTotalAmount,
+      maxTotalAmount,
+      sortBy = "createdAt",
+      sortOrder = "DESC",
+      page = 1,
+      limit = 10,
+    } = query ?? {};
+
+    const safeLimit = Math.min(Number(limit) || 10, 100);
+    const safePage = Math.max(Number(page) || 1, 1);
+
+    const qb = this.cartRepo
+      .createQueryBuilder("cart")
+      .leftJoinAndSelect("cart.user", "user")
+      .leftJoinAndSelect("cart.items", "items")
+      .leftJoinAndSelect("items.product", "product");
+
+    if (search) {
+      qb.andWhere(
+        "(user.email ILIKE :search OR user.firstName ILIKE :search OR user.lastName ILIKE :search)",
+        { search: `%${search}%` }
+      );
+    }
+
+    if (userId) {
+      qb.andWhere("user.id = :userId", { userId });
+    }
+
+    if (isActive !== undefined) {
+      qb.andWhere("cart.isActive = :isActive", { isActive });
+    }
+
+    if (minTotalAmount) {
+      qb.andWhere("cart.totalAmount >= :minTotalAmount", { minTotalAmount });
+    }
+
+    if (maxTotalAmount) {
+      qb.andWhere("cart.totalAmount <= :maxTotalAmount", { maxTotalAmount });
+    }
+
+    // Avoid SQL injection on column name
+    const allowedSortBy = new Set([
+      "createdAt",
+      "updatedAt",
+      "totalAmount",
+      "totalItems",
+    ]);
+    const sortColumn = allowedSortBy.has(sortBy) ? sortBy : "createdAt";
+
+    qb.orderBy(`cart.${sortColumn}`, sortOrder ?? "DESC");
+    qb.skip((safePage - 1) * safeLimit).take(safeLimit);
+
+    const [data, total] = await qb.getManyAndCount();
+    const totalPages = Math.ceil(total / safeLimit);
+
+    return {
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages,
+      data,
+    };
+  }
+
+  async getOrCreateCart(user) {
+    let cart = await this.cartRepo.findOne({
+      where: { user: { id: user.id }, isActive: true },
+      relations: ["items", "items.product"],
+    });
+
+    if (!cart) {
+      cart = this.cartRepo.create({
+        user: { id: user.id },
+      });
+      cart = await this.cartRepo.save(cart);
+      cart.items = [];
+    }
+
+    return cart;
+  }
+
+  async addToCart(dto: AddToCartDto, user) {
+    const productId = String(dto.productId);
+    const product = await this.productRepo.findOne({
+      where: { id: productId },
+    });
+
+    if (!product || !product.isAvailable) {
+      throw new BadRequestException("Product not available");
+    }
+
+    const cart = await this.getOrCreateCart(user);
+    const cartItems = cart.items ?? [];
+    let item = cartItems.find((i) => String(i.product.id) === productId);
+    const unitPrice = parseFloat(Number(product.sellingPrice).toFixed(2));
+
+    // Calculate current quantity in cart
+    const currentCartQuantity = item ? item.quantity : 0;
+    const requestedQuantity = dto.quantity;
+    const totalQuantity = currentCartQuantity + requestedQuantity;
+
+    // Check if total quantity exceeds available stock
+    if (totalQuantity > product.stockQuantity) {
+      throw new BadRequestException(
+        `Cannot add ${requestedQuantity} items. Only ${product.stockQuantity - currentCartQuantity} items available in stock.`
+      );
+    }
+
+    if (item) {
+      item.quantity += dto.quantity;
+      item.price = unitPrice as any;
+      item.totalPrice = parseFloat((item.quantity * unitPrice).toFixed(2));
+      await this.cartItemRepo.save(item);
+    } else {
+      item = this.cartItemRepo.create({
+        cart,
+        product,
+        quantity: dto.quantity,
+        price: unitPrice as any,
+        totalPrice: parseFloat((dto.quantity * unitPrice).toFixed(2)),
+      });
+      await this.cartItemRepo.save(item);
+    }
+
+    // Ensure cart has the item reference (helpful right after creating a new cart).
+    if (!cartItems.some((i) => i.id === item.id)) {
+      cart.items = [...cartItems, item];
+      await this.cartRepo.save(cart);
+    }
+
+    return this.recalculateCart(cart.id);
+  }
+
+  async updateCart(dto: UpdateCartDto, user) {
+    const cart = await this.getOrCreateCart(user);
+    const productId = String(dto.productId);
+    const item = await this.cartItemRepo.findOne({
+      where: { cart: { id: cart.id }, product: { id: productId } },
+      relations: ["product"],
+    });
+
+    if (!item) {
+      throw new BadRequestException("Item not in cart");
+    }
+
+    // Check if requested quantity exceeds available stock
+    if (dto.quantity > item.product.stockQuantity) {
+      throw new BadRequestException(
+        `Cannot update quantity to ${dto.quantity}. Only ${item.product.stockQuantity} items available in stock.`
+      );
+    }
+
+    if (dto.quantity <= 0) {
+      await this.cartItemRepo.delete(item.id);
+    } else {
+      item.quantity = dto.quantity;
+      item.totalPrice = parseFloat((item.quantity * Number(item.price)).toFixed(2));
+      await this.cartItemRepo.save(item);
+    }
+    return this.recalculateCart(cart.id);
+  }
+
+  async removeItem(itemId: number, user) {
+    const cart = await this.getOrCreateCart(user);
+
+    const item = await this.cartItemRepo.findOne({
+      where: { id: itemId, cart: { id: cart.id } },
+    });
+
+    if (!item) {
+      throw new BadRequestException("Item not in cart");
+    }
+
+    await this.cartItemRepo.delete(item.id);
+    return this.recalculateCart(cart.id);
+  }
+
+  async recalculateCart(cartId: number) {
+    const cart = await this.cartRepo.findOne({
+      where: { id: cartId },
+      relations: ["items"],
+    });
+
+    if (!cart) {
+      throw new BadRequestException("Cart not found");
+    }
+
+    let totalAmount = 0;
+    let totalItems = 0;
+
+    for (const item of cart.items ?? []) {
+      totalAmount += Number(item.totalPrice) || 0;
+      totalItems += Number(item.quantity) || 0;
+    }
+
+    cart.totalAmount = parseFloat(totalAmount.toFixed(2));
+    cart.totalItems = totalItems;
+
+    await this.cartRepo.save(cart);
+    return cart;
+  }
+}

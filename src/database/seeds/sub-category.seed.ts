@@ -1,7 +1,7 @@
 import { DataSource, In } from "typeorm";
 import { Seeder, SeederFactoryManager } from "typeorm-extension";
-import { Category } from "../../categories/entity/category.entity";
-import { SubCategory } from "../../categories/entity/sub-category.entity";
+import { Category } from "../../modules/categories/entity/category.entity";
+import { SubCategory } from "../../modules/categories/entity/sub-category.entity";
 
 type CategoryName = string;
 

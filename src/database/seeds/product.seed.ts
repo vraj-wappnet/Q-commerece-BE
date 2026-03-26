@@ -1,9 +1,9 @@
 import { DataSource } from "typeorm";
 import { Seeder, SeederFactoryManager } from "typeorm-extension";
-import { Product } from "../../products/entity/product.entity";
-import { Category } from "../../categories/entity/category.entity";
-import { SubCategory } from "../../categories/entity/sub-category.entity";
-import { Shop } from "../../shops/entity/shop.entity";
+import { Product } from "../../modules/products/entity/product.entity";
+import { Category } from "../../modules/categories/entity/category.entity";
+import { SubCategory } from "../../modules/categories/entity/sub-category.entity";
+import { Shop } from "../../modules/shops/entity/shop.entity";
 import { faker } from "@faker-js/faker";
 
 export default class CreateProducts implements Seeder {

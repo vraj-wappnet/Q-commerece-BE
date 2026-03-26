@@ -1,19 +1,19 @@
 import { DataSource, DataSourceOptions } from "typeorm";
 import { config } from "dotenv";
-import { User } from "../auth/entity/user.entity";
-import { Otp } from "../auth/entity/otp.entity";
-import { Shop } from "../shops/entity/shop.entity";
+import { User } from "../modules/auth/entity/user.entity";
+import { Otp } from "../modules/auth/entity/otp.entity";
+import { Shop } from "../modules/shops/entity/shop.entity";
 import { SeederOptions } from "typeorm-extension";
-import { Product } from "src/products/entity/product.entity";
-import { CartItem } from "src/cart/entity/cart-item.entity";
-import { Cart } from "src/cart/entity/cart.entity";
-import { Category } from "src/categories/entity/category.entity";
-import { SubCategory } from "src/categories/entity/sub-category.entity";
-import { Order } from "src/orders/entity/order.entity";
-import { OrderItem } from "src/orders/entity/order-item.entity";
-import { DeliveryProfile } from "src/delivery_profiles/entity/delivery-profile.entity";
-import { DeliveryAssignment } from "src/order_delivery_assignment/entity/delivery_assignment.entity";
-import { Notification } from "../notifications/entity/notification.entity";
+import { Product } from "src/modules/products/entity/product.entity";
+import { CartItem } from "src/modules/cart/entity/cart-item.entity";
+import { Cart } from "src/modules/cart/entity/cart.entity";
+import { Category } from "src/modules/categories/entity/category.entity";
+import { SubCategory } from "src/modules/categories/entity/sub-category.entity";
+import { Order } from "src/modules/orders/entity/order.entity";
+import { OrderItem } from "src/modules/orders/entity/order-item.entity";
+import { DeliveryProfile } from "src/modules/delivery_profiles/entity/delivery-profile.entity";
+import { DeliveryAssignment } from "src/modules/order_delivery_assignment/entity/delivery_assignment.entity";
+import { Notification } from "../modules/notifications/entity/notification.entity";
 
 config();
 
