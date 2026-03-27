@@ -1,7 +1,7 @@
 import { DataSource } from "typeorm";
 import { Seeder, SeederFactoryManager } from "typeorm-extension";
 import { User } from "../../modules/auth/entity/user.entity";
-import { UserRole } from "../../common/enum/roles.enum";
+import { Role } from "../../modules/roles-permission/entity/roles.entity";
 import * as bcrypt from "bcrypt";
 import { faker } from "@faker-js/faker";
 
@@ -15,8 +15,12 @@ export default class CreateUsers implements Seeder {
     const password = await bcrypt.hash("Password@123", 10);
 
     // Get existing sellers count
+    const sellerRole = await dataSource.getRepository(Role).findOne({ where: { name: 'SELLER' } });
+    const customerRole = await dataSource.getRepository(Role).findOne({ where: { name: 'CUSTOMER' } });
+    const deliveryRole = await dataSource.getRepository(Role).findOne({ where: { name: 'DELIVERY' } });
+    
     const existingSellersCount = await userRepo.count({
-      where: { role: UserRole.SELLER, isVerified: true, adminApproved: true }
+      where: { role: sellerRole!, isVerified: true, adminApproved: true }
     });
 
     const users: Partial<User>[] = [];
@@ -35,7 +39,7 @@ export default class CreateUsers implements Seeder {
         email: `seller${timestamp}${i}@yopmail.com`,
         mobile: faker.string.numeric(10),
         password: password,
-        role: UserRole.SELLER,
+        role: sellerRole!,
         isVerified: true,
         adminApproved: true,
       });
@@ -53,7 +57,7 @@ export default class CreateUsers implements Seeder {
         email: `customer${timestamp}${i}@yopmail.com`,
         mobile: faker.string.numeric(10),
         password: password,
-        role: UserRole.CUSTOMER,
+        role: customerRole!,
         isVerified: true,
         adminApproved: true,
       });
@@ -71,7 +75,7 @@ export default class CreateUsers implements Seeder {
         email: `delivery${timestamp}${i}@yopmail.com`,
         mobile: faker.string.numeric(10),
         password: password,
-        role: UserRole.DELIVERY,
+        role: deliveryRole!,
         isVerified: true,
         adminApproved: true,
       });

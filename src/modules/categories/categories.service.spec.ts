@@ -1,14 +1,13 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
+import { BadRequestException, HttpStatus } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { CategoriesService } from './categories.service';
 import { Category } from './entity/category.entity';
 import { SubCategory } from './entity/sub-category.entity';
 import { Product } from '../products/entity/product.entity';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { CreateSubCategoryDto } from './dto/create-subcategory.dto';
-import { BadRequestException } from '@nestjs/common';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { MESSAGES } from '../../common/constant/message';
 
 describe('CategoriesService', () => {
   let service: CategoriesService;
@@ -16,41 +15,21 @@ describe('CategoriesService', () => {
   let subCategoryRepo: Repository<SubCategory>;
   let productRepo: Repository<Product>;
 
-  const mockCategoryRepo = {
-    find: vi.fn(),
-    findOne: vi.fn(),
-    create: vi.fn(),
-    save: vi.fn(),
-    delete: vi.fn(),
-  };
-
-  const mockSubCategoryRepo = {
-    find: vi.fn(),
-    findOne: vi.fn(),
-    create: vi.fn(),
-    save: vi.fn(),
-    delete: vi.fn(),
-  };
-
-  const mockProductRepo = {
-    count: vi.fn(),
-  };
-
-  const mockCategory: Category = {
-    id: '1',
-    name: 'Electronics',
+  const mockCategory = {
+    id: 'category-uuid-123',
+    name: 'Vegetables',
     subCategories: [],
     createdAt: new Date(),
     updatedAt: new Date(),
-  } as Category;
+  };
 
-  const mockSubCategory: SubCategory = {
-    id: '1',
-    name: 'Mobile Phones',
+  const mockSubCategory = {
+    id: 'subcategory-uuid-123',
+    name: 'Leafy Greens',
     category: mockCategory,
     createdAt: new Date(),
     updatedAt: new Date(),
-  } as SubCategory;
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -58,15 +37,31 @@ describe('CategoriesService', () => {
         CategoriesService,
         {
           provide: getRepositoryToken(Category),
-          useValue: mockCategoryRepo,
+          useValue: {
+            findOne: vi.fn(),
+            find: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            delete: vi.fn(),
+            createQueryBuilder: vi.fn(),
+          },
         },
         {
           provide: getRepositoryToken(SubCategory),
-          useValue: mockSubCategoryRepo,
+          useValue: {
+            findOne: vi.fn(),
+            find: vi.fn(),
+            create: vi.fn(),
+            save: vi.fn(),
+            delete: vi.fn(),
+            createQueryBuilder: vi.fn(),
+          },
         },
         {
           provide: getRepositoryToken(Product),
-          useValue: mockProductRepo,
+          useValue: {
+            count: vi.fn(),
+          },
         },
       ],
     }).compile();
@@ -81,212 +76,485 @@ describe('CategoriesService', () => {
     vi.clearAllMocks();
   });
 
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
   describe('getAll', () => {
-    it('should return all categories ordered by name', async () => {
-      const mockCategories = [mockCategory];
-      mockCategoryRepo.find.mockResolvedValue(mockCategories);
+    it('should return paginated categories with default parameters', async () => {
+      const mockQueryBuilder = {
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[mockCategory], 1]),
+      };
+      vi.spyOn(categoryRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any);
 
-      const result = await service.getAll();
+      const result = await service.getAll({});
 
-      expect(categoryRepo.find).toHaveBeenCalledWith({
-        order: { name: 'ASC' },
-        relations: ['subCategories'],
-      });
-      expect(result).toEqual(mockCategories);
+      expect(result.statusCode).toBe(HttpStatus.OK);
+      expect(result.message).toBe(MESSAGES.CATEGORY.LIST_FETCHED);
+      expect(result.data.items).toEqual([mockCategory]);
+      expect(result.data.total).toBe(1);
+      expect(result.data.page).toBe(1);
+      expect(result.data.limit).toBe(10);
+    });
+
+    it('should apply search filter correctly', async () => {
+      const mockQueryBuilder = {
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      vi.spyOn(categoryRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any);
+
+      await service.getAll({ search: 'veg' });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'category.name ILIKE :search',
+        { search: '%veg%' }
+      );
+    });
+
+    it('should apply name filter correctly', async () => {
+      const mockQueryBuilder = {
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      vi.spyOn(categoryRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any);
+
+      await service.getAll({ name: 'fruits' });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'category.name ILIKE :name',
+        { name: '%fruits%' }
+      );
+    });
+
+    it('should throw BadRequestException for invalid createdFrom date', async () => {
+      await expect(
+        service.getAll({ createdFrom: 'invalid-date' })
+      ).rejects.toThrow(new BadRequestException('Invalid createdFrom date'));
+    });
+
+    it('should throw BadRequestException for invalid createdTo date', async () => {
+      await expect(
+        service.getAll({ createdTo: 'invalid-date' })
+      ).rejects.toThrow(new BadRequestException('Invalid createdTo date'));
+    });
+
+    it('should throw BadRequestException for invalid updatedFrom date', async () => {
+      await expect(
+        service.getAll({ updatedFrom: 'invalid-date' })
+      ).rejects.toThrow(new BadRequestException('Invalid updatedFrom date'));
+    });
+
+    it('should throw BadRequestException for invalid updatedTo date', async () => {
+      await expect(
+        service.getAll({ updatedTo: 'invalid-date' })
+      ).rejects.toThrow(new BadRequestException('Invalid updatedTo date'));
+    });
+
+    it('should throw BadRequestException when createdFrom is after createdTo', async () => {
+      await expect(
+        service.getAll({
+          createdFrom: '2026-12-31',
+          createdTo: '2026-01-01',
+        })
+      ).rejects.toThrow(new BadRequestException('createdFrom must be before or equal to createdTo'));
+    });
+
+    it('should throw BadRequestException when updatedFrom is after updatedTo', async () => {
+      await expect(
+        service.getAll({
+          updatedFrom: '2026-12-31',
+          updatedTo: '2026-01-01',
+        })
+      ).rejects.toThrow(new BadRequestException('updatedFrom must be before or equal to updatedTo'));
+    });
+
+    it('should handle pagination correctly', async () => {
+      const mockQueryBuilder = {
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[mockCategory], 25]),
+      };
+      vi.spyOn(categoryRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any);
+
+      const result = await service.getAll({ page: 2, limit: 10 });
+
+      expect(mockQueryBuilder.skip).toHaveBeenCalledWith(10);
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(10);
+      expect(result.data.totalPages).toBe(3);
+      expect(result.data.hasNextPage).toBe(true);
+      expect(result.data.hasPreviousPage).toBe(true);
+    });
+
+    it('should limit maximum items per page to 100', async () => {
+      const mockQueryBuilder = {
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      vi.spyOn(categoryRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any);
+
+      await service.getAll({ limit: 200 });
+
+      expect(mockQueryBuilder.take).toHaveBeenCalledWith(100);
+    });
+
+    it('should prevent SQL injection on sortBy field', async () => {
+      const mockQueryBuilder = {
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      vi.spyOn(categoryRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any);
+
+      await service.getAll({ sortBy: 'malicious; DROP TABLE categories;' as any });
+
+      expect(mockQueryBuilder.orderBy).toHaveBeenCalledWith('category.name', 'ASC');
     });
   });
 
   describe('getAllSubCategories', () => {
-    it('should return all subcategories ordered by name', async () => {
-      const mockSubCategories = [mockSubCategory];
-      mockSubCategoryRepo.find.mockResolvedValue(mockSubCategories);
+    it('should return paginated subcategories with default parameters', async () => {
+      const mockQueryBuilder = {
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[mockSubCategory], 1]),
+      };
+      vi.spyOn(subCategoryRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any);
 
-      const result = await service.getAllSubCategories();
+      const result = await service.getAllSubCategories({});
 
-      expect(subCategoryRepo.find).toHaveBeenCalledWith({
-        order: { name: 'ASC' },
-        relations: ['category'],
-      });
-      expect(result).toEqual(mockSubCategories);
+      expect(result.statusCode).toBe(HttpStatus.OK);
+      expect(result.message).toBe(MESSAGES.CATEGORY.SUBCATEGORY_LIST_FETCHED);
+      expect(result.data.items).toEqual([mockSubCategory]);
+    });
+
+    it('should apply search filter for subcategory and category name', async () => {
+      const mockQueryBuilder = {
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      vi.spyOn(subCategoryRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any);
+
+      await service.getAllSubCategories({ search: 'leafy' });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        '(subCategory.name ILIKE :search OR category.name ILIKE :search)',
+        { search: '%leafy%' }
+      );
+    });
+
+    it('should apply categoryId filter correctly', async () => {
+      const mockQueryBuilder = {
+        leftJoinAndSelect: vi.fn().mockReturnThis(),
+        andWhere: vi.fn().mockReturnThis(),
+        orderBy: vi.fn().mockReturnThis(),
+        skip: vi.fn().mockReturnThis(),
+        take: vi.fn().mockReturnThis(),
+        getManyAndCount: vi.fn().mockResolvedValue([[], 0]),
+      };
+      vi.spyOn(subCategoryRepo, 'createQueryBuilder').mockReturnValue(mockQueryBuilder as any);
+
+      await service.getAllSubCategories({ categoryId: 'category-uuid-123' });
+
+      expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'category.id = :categoryId',
+        { categoryId: 'category-uuid-123' }
+      );
     });
   });
 
   describe('getSubCategoriesByCategory', () => {
-    it('should return subcategories by category', async () => {
-      const categoryId = '1';
-      mockCategoryRepo.findOne.mockResolvedValue(mockCategory);
-      mockSubCategoryRepo.find.mockResolvedValue([mockSubCategory]);
+    it('should throw BadRequestException when category not found', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(null);
 
-      const result = await service.getSubCategoriesByCategory(categoryId);
-
-      expect(categoryRepo.findOne).toHaveBeenCalledWith({
-        where: { id: categoryId },
-      });
-      expect(subCategoryRepo.find).toHaveBeenCalledWith({
-        where: { category: { id: categoryId } },
-        order: { name: 'ASC' },
-        relations: ['category'],
-      });
-      expect(result).toEqual([mockSubCategory]);
+      await expect(
+        service.getSubCategoriesByCategory('non-existent-id')
+      ).rejects.toThrow(new BadRequestException('Category not found'));
     });
 
-    it('should throw error if category not found', async () => {
-      const categoryId = '999';
-      mockCategoryRepo.findOne.mockResolvedValue(null);
+    it('should return subcategories for valid category', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(mockCategory as any);
+      vi.spyOn(subCategoryRepo, 'find').mockResolvedValue([mockSubCategory] as any);
 
-      await expect(service.getSubCategoriesByCategory(categoryId)).rejects.toThrow(
-        BadRequestException
-      );
+      const result = await service.getSubCategoriesByCategory('category-uuid-123');
+
+      expect(result.statusCode).toBe(HttpStatus.OK);
+      expect(result.message).toBe(MESSAGES.CATEGORY.SUBCATEGORY_LIST_FETCHED);
+      expect(result.data).toEqual([mockSubCategory]);
     });
   });
 
   describe('createCategory', () => {
-    it('should create a new category', async () => {
-      const dto: CreateCategoryDto = { name: 'New Category' };
-      const trimmedName = 'New Category';
-      const newCategory = { id: '2', name: trimmedName };
+    it('should throw BadRequestException when category already exists', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(mockCategory as any);
 
-      mockCategoryRepo.findOne.mockResolvedValue(null);
-      mockCategoryRepo.create.mockReturnValue(newCategory);
-      mockCategoryRepo.save.mockResolvedValue(newCategory);
-
-      const result = await service.createCategory(dto);
-
-      expect(categoryRepo.findOne).toHaveBeenCalledWith({ where: { name: trimmedName } });
-      expect(categoryRepo.create).toHaveBeenCalledWith({ name: trimmedName });
-      expect(categoryRepo.save).toHaveBeenCalledWith(newCategory);
-      expect(result).toEqual(newCategory);
+      await expect(
+        service.createCategory({ name: 'Vegetables' })
+      ).rejects.toThrow(new BadRequestException('Category already exists'));
     });
 
-    it('should throw error if category already exists', async () => {
-      const dto: CreateCategoryDto = { name: 'Electronics' };
-      mockCategoryRepo.findOne.mockResolvedValue(mockCategory);
+    it('should create category successfully with trimmed name', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(null);
+      vi.spyOn(categoryRepo, 'create').mockReturnValue(mockCategory as any);
+      vi.spyOn(categoryRepo, 'save').mockResolvedValue(mockCategory as any);
 
-      await expect(service.createCategory(dto)).rejects.toThrow(
-        'Category already exists'
-      );
+      const result = await service.createCategory({ name: '  Vegetables  ' });
+
+      expect(categoryRepo.create).toHaveBeenCalledWith({ name: 'Vegetables' });
+      expect(result.statusCode).toBe(HttpStatus.CREATED);
+      expect(result.message).toBe(MESSAGES.CATEGORY.CREATED);
+      expect(result.data).toEqual(mockCategory);
     });
   });
 
   describe('deleteCategory', () => {
-    it('should delete a category', async () => {
-      const categoryId = '1';
-      mockCategoryRepo.findOne.mockResolvedValue(mockCategory);
-      mockProductRepo.count.mockResolvedValue(0);
-      mockCategoryRepo.delete.mockResolvedValue({ affected: 1 });
+    it('should throw BadRequestException when category not found', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(null);
 
-      const result = await service.deleteCategory(categoryId);
-
-      expect(categoryRepo.findOne).toHaveBeenCalledWith({ where: { id: categoryId } });
-      expect(productRepo.count).toHaveBeenCalledWith({ where: { category: { id: categoryId } } });
-      expect(categoryRepo.delete).toHaveBeenCalledWith(categoryId);
-      expect(result).toEqual({ message: 'Category deleted successfully' });
+      await expect(
+        service.deleteCategory('non-existent-id')
+      ).rejects.toThrow(new BadRequestException('Category not found'));
     });
 
-    it('should throw error if category not found', async () => {
-      const categoryId = '999';
-      mockCategoryRepo.findOne.mockResolvedValue(null);
+    it('should throw BadRequestException when category is used by products', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(mockCategory as any);
+      vi.spyOn(productRepo, 'count').mockResolvedValue(5);
 
-      await expect(service.deleteCategory(categoryId)).rejects.toThrow(
-        'Category not found'
-      );
+      await expect(
+        service.deleteCategory('category-uuid-123')
+      ).rejects.toThrow(new BadRequestException('Category is used by products'));
     });
 
-    it('should throw error if category is used by products', async () => {
-      const categoryId = '1';
-      mockCategoryRepo.findOne.mockResolvedValue(mockCategory);
-      mockProductRepo.count.mockResolvedValue(5);
+    it('should delete category successfully when not used', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(mockCategory as any);
+      vi.spyOn(productRepo, 'count').mockResolvedValue(0);
+      vi.spyOn(categoryRepo, 'delete').mockResolvedValue({} as any);
 
-      await expect(service.deleteCategory(categoryId)).rejects.toThrow(
-        'Category is used by products'
-      );
+      const result = await service.deleteCategory('category-uuid-123');
+
+      expect(categoryRepo.delete).toHaveBeenCalledWith('category-uuid-123');
+      expect(result.statusCode).toBe(HttpStatus.OK);
+      expect(result.message).toBe(MESSAGES.CATEGORY.DELETED);
+      expect(result.data).toBeNull();
     });
   });
 
   describe('createSubCategory', () => {
-    it('should create a new subcategory', async () => {
-      const categoryId = '1';
-      const dto: CreateSubCategoryDto = { name: 'New SubCategory' };
-      const trimmedName = 'New SubCategory';
-      const newSubCategory = { id: '2', name: trimmedName, category: mockCategory };
+    it('should throw BadRequestException when category not found', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(null);
 
-      mockCategoryRepo.findOne.mockResolvedValue(mockCategory);
-      mockSubCategoryRepo.findOne.mockResolvedValue(null);
-      mockSubCategoryRepo.create.mockReturnValue(newSubCategory);
-      mockSubCategoryRepo.save.mockResolvedValue(newSubCategory);
-
-      const result = await service.createSubCategory(categoryId, dto);
-
-      expect(categoryRepo.findOne).toHaveBeenCalledWith({
-        where: { id: categoryId },
-      });
-      expect(subCategoryRepo.findOne).toHaveBeenCalledWith({
-        where: { category: { id: categoryId }, name: trimmedName },
-        relations: ['category'],
-      });
-      expect(subCategoryRepo.create).toHaveBeenCalledWith({ name: trimmedName, category: mockCategory });
-      expect(result).toEqual(newSubCategory);
+      await expect(
+        service.createSubCategory('non-existent-id', { name: 'Leafy Greens' })
+      ).rejects.toThrow(new BadRequestException('Category not found'));
     });
 
-    it('should throw error if category not found', async () => {
-      const categoryId = '999';
-      const dto: CreateSubCategoryDto = { name: 'New SubCategory' };
-      mockCategoryRepo.findOne.mockResolvedValue(null);
+    it('should throw BadRequestException when subcategory already exists', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(mockCategory as any);
+      vi.spyOn(subCategoryRepo, 'findOne').mockResolvedValue(mockSubCategory as any);
 
-      await expect(service.createSubCategory(categoryId, dto)).rejects.toThrow(
-        'Category not found'
-      );
+      await expect(
+        service.createSubCategory('category-uuid-123', { name: 'Leafy Greens' })
+      ).rejects.toThrow(new BadRequestException('SubCategory already exists'));
     });
 
-    it('should throw error if subcategory already exists', async () => {
-      const categoryId = '1';
-      const dto: CreateSubCategoryDto = { name: 'Mobile Phones' };
-      mockCategoryRepo.findOne.mockResolvedValue(mockCategory);
-      mockSubCategoryRepo.findOne.mockResolvedValue(mockSubCategory);
+    it('should create subcategory successfully with trimmed name', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(mockCategory as any);
+      vi.spyOn(subCategoryRepo, 'findOne').mockResolvedValue(null);
+      vi.spyOn(subCategoryRepo, 'create').mockReturnValue(mockSubCategory as any);
+      vi.spyOn(subCategoryRepo, 'save').mockResolvedValue(mockSubCategory as any);
 
-      await expect(service.createSubCategory(categoryId, dto)).rejects.toThrow(
-        'SubCategory already exists'
-      );
+      const result = await service.createSubCategory('category-uuid-123', { name: '  Leafy Greens  ' });
+
+      expect(subCategoryRepo.create).toHaveBeenCalledWith({
+        name: 'Leafy Greens',
+        category: mockCategory,
+      });
+      expect(result.statusCode).toBe(HttpStatus.CREATED);
+      expect(result.message).toBe(MESSAGES.CATEGORY.SUBCATEGORY_CREATED);
+      expect(result.data).toEqual(mockSubCategory);
     });
   });
 
   describe('deleteSubCategory', () => {
-    it('should delete a subcategory', async () => {
-      const subCategoryId = '1';
-      mockSubCategoryRepo.findOne.mockResolvedValue(mockSubCategory);
-      mockProductRepo.count.mockResolvedValue(0);
-      mockSubCategoryRepo.delete.mockResolvedValue({ affected: 1 });
+    it('should throw BadRequestException when subcategory not found', async () => {
+      vi.spyOn(subCategoryRepo, 'findOne').mockResolvedValue(null);
 
-      const result = await service.deleteSubCategory(subCategoryId);
-
-      expect(subCategoryRepo.findOne).toHaveBeenCalledWith({
-        where: { id: subCategoryId },
-        relations: ['category'],
-      });
-      expect(productRepo.count).toHaveBeenCalledWith({
-        where: { subCategory: { id: subCategoryId } },
-      });
-      expect(subCategoryRepo.delete).toHaveBeenCalledWith(subCategoryId);
-      expect(result).toEqual({ message: 'SubCategory deleted successfully' });
+      await expect(
+        service.deleteSubCategory('non-existent-id')
+      ).rejects.toThrow(new BadRequestException('SubCategory not found'));
     });
 
-    it('should throw error if subcategory not found', async () => {
-      const subCategoryId = '999';
-      mockSubCategoryRepo.findOne.mockResolvedValue(null);
+    it('should throw BadRequestException when subcategory is used by products', async () => {
+      vi.spyOn(subCategoryRepo, 'findOne').mockResolvedValue(mockSubCategory as any);
+      vi.spyOn(productRepo, 'count').mockResolvedValue(3);
 
-      await expect(service.deleteSubCategory(subCategoryId)).rejects.toThrow(
-        'SubCategory not found'
-      );
+      await expect(
+        service.deleteSubCategory('subcategory-uuid-123')
+      ).rejects.toThrow(new BadRequestException('SubCategory is used by products'));
     });
 
-    it('should throw error if subcategory is used by products', async () => {
-      const subCategoryId = '1';
-      mockSubCategoryRepo.findOne.mockResolvedValue(mockSubCategory);
-      mockProductRepo.count.mockResolvedValue(3);
+    it('should delete subcategory successfully when not used', async () => {
+      vi.spyOn(subCategoryRepo, 'findOne').mockResolvedValue(mockSubCategory as any);
+      vi.spyOn(productRepo, 'count').mockResolvedValue(0);
+      vi.spyOn(subCategoryRepo, 'delete').mockResolvedValue({} as any);
 
-      await expect(service.deleteSubCategory(subCategoryId)).rejects.toThrow(
-        'SubCategory is used by products'
-      );
+      const result = await service.deleteSubCategory('subcategory-uuid-123');
+
+      expect(subCategoryRepo.delete).toHaveBeenCalledWith('subcategory-uuid-123');
+      expect(result.statusCode).toBe(HttpStatus.OK);
+      expect(result.message).toBe(MESSAGES.CATEGORY.SUBCATEGORY_DELETED);
+      expect(result.data).toBeNull();
+    });
+  });
+
+  describe('updateCategory', () => {
+    it('should throw BadRequestException when category not found', async () => {
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(null);
+
+      await expect(
+        service.updateCategory('non-existent-id', { name: 'New Name' })
+      ).rejects.toThrow(new BadRequestException('Category not found'));
+    });
+
+    it('should throw BadRequestException when new name already exists', async () => {
+      const existingCategory = { ...mockCategory, id: 'different-id' };
+      vi.spyOn(categoryRepo, 'findOne')
+        .mockResolvedValueOnce(mockCategory as any)
+        .mockResolvedValueOnce(existingCategory as any);
+
+      await expect(
+        service.updateCategory('category-uuid-123', { name: 'Vegetables' })
+      ).rejects.toThrow(new BadRequestException('Category name already exists'));
+    });
+
+    it('should update category successfully with trimmed name', async () => {
+      vi.spyOn(categoryRepo, 'findOne')
+        .mockResolvedValueOnce(mockCategory as any)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ ...mockCategory, name: 'Fruits' } as any);
+      vi.spyOn(categoryRepo, 'save').mockResolvedValue({ ...mockCategory, name: 'Fruits' } as any);
+
+      const result = await service.updateCategory('category-uuid-123', { name: '  Fruits  ' });
+
+      expect(result.statusCode).toBe(HttpStatus.OK);
+      expect(result.message).toBe(MESSAGES.CATEGORY.UPDATED);
+      expect(result.data.name).toBe('Fruits');
+    });
+
+    it('should allow updating to same name', async () => {
+      vi.spyOn(categoryRepo, 'findOne')
+        .mockResolvedValueOnce(mockCategory as any)
+        .mockResolvedValueOnce(mockCategory as any)
+        .mockResolvedValueOnce(mockCategory as any);
+      vi.spyOn(categoryRepo, 'save').mockResolvedValue(mockCategory as any);
+
+      const result = await service.updateCategory('category-uuid-123', { name: 'Vegetables' });
+
+      expect(result.statusCode).toBe(HttpStatus.OK);
+    });
+  });
+
+  describe('updateSubCategory', () => {
+    it('should throw BadRequestException when subcategory not found', async () => {
+      vi.spyOn(subCategoryRepo, 'findOne').mockResolvedValue(null);
+
+      await expect(
+        service.updateSubCategory('non-existent-id', { name: 'New Name' })
+      ).rejects.toThrow(new BadRequestException('SubCategory not found'));
+    });
+
+    it('should throw BadRequestException when new name already exists in category', async () => {
+      const existingSubCategory = { ...mockSubCategory, id: 'different-id' };
+      vi.spyOn(subCategoryRepo, 'findOne')
+        .mockResolvedValueOnce(mockSubCategory as any)
+        .mockResolvedValueOnce(existingSubCategory as any);
+
+      await expect(
+        service.updateSubCategory('subcategory-uuid-123', { name: 'Leafy Greens' })
+      ).rejects.toThrow(new BadRequestException('SubCategory name already exists in this category'));
+    });
+
+    it('should throw BadRequestException when new category not found', async () => {
+      vi.spyOn(subCategoryRepo, 'findOne').mockResolvedValue(mockSubCategory as any);
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(null);
+
+      await expect(
+        service.updateSubCategory('subcategory-uuid-123', { categoryId: 'non-existent-id' })
+      ).rejects.toThrow(new BadRequestException('Category not found'));
+    });
+
+    it('should update subcategory name successfully', async () => {
+      vi.spyOn(subCategoryRepo, 'findOne')
+        .mockResolvedValueOnce(mockSubCategory as any)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ ...mockSubCategory, name: 'Root Vegetables' } as any);
+      vi.spyOn(subCategoryRepo, 'save').mockResolvedValue({ ...mockSubCategory, name: 'Root Vegetables' } as any);
+
+      const result = await service.updateSubCategory('subcategory-uuid-123', { name: '  Root Vegetables  ' });
+
+      expect(result.statusCode).toBe(HttpStatus.OK);
+      expect(result.message).toBe(MESSAGES.CATEGORY.SUBCATEGORY_UPDATED);
+    });
+
+    it('should update subcategory category successfully', async () => {
+      const newCategory = { ...mockCategory, id: 'new-category-id', name: 'Fruits' };
+      vi.spyOn(subCategoryRepo, 'findOne')
+        .mockResolvedValueOnce(mockSubCategory as any)
+        .mockResolvedValueOnce(mockSubCategory as any);
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(newCategory as any);
+      vi.spyOn(subCategoryRepo, 'save').mockResolvedValue({ ...mockSubCategory, category: newCategory } as any);
+
+      const result = await service.updateSubCategory('subcategory-uuid-123', { categoryId: 'new-category-id' });
+
+      expect(result.statusCode).toBe(HttpStatus.OK);
+      expect(result.message).toBe(MESSAGES.CATEGORY.SUBCATEGORY_UPDATED);
+    });
+
+    it('should update both name and category successfully', async () => {
+      const newCategory = { ...mockCategory, id: 'new-category-id', name: 'Fruits' };
+      vi.spyOn(subCategoryRepo, 'findOne')
+        .mockResolvedValueOnce(mockSubCategory as any)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ ...mockSubCategory, name: 'Citrus', category: newCategory } as any);
+      vi.spyOn(categoryRepo, 'findOne').mockResolvedValue(newCategory as any);
+      vi.spyOn(subCategoryRepo, 'save').mockResolvedValue({ ...mockSubCategory, name: 'Citrus', category: newCategory } as any);
+
+      const result = await service.updateSubCategory('subcategory-uuid-123', {
+        name: 'Citrus',
+        categoryId: 'new-category-id',
+      });
+
+      expect(result.statusCode).toBe(HttpStatus.OK);
     });
   });
 });

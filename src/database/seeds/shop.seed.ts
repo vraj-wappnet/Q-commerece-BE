@@ -2,7 +2,7 @@ import { DataSource } from "typeorm";
 import { Seeder, SeederFactoryManager } from "typeorm-extension";
 import { Shop } from "../../modules/shops/entity/shop.entity";
 import { User } from "../../modules/auth/entity/user.entity";
-import { UserRole } from "../../common/enum/roles.enum";
+import { Role } from "../../modules/roles-permission/entity/roles.entity";
 import { faker } from "@faker-js/faker";
 
 export default class CreateShops implements Seeder {
@@ -14,8 +14,9 @@ export default class CreateShops implements Seeder {
     const userRepo = dataSource.getRepository(User);
 
     // Get existing sellers
+    const sellerRole = await dataSource.getRepository(Role).findOne({ where: { name: 'SELLER' } });
     const sellers = await userRepo.find({
-      where: { role: UserRole.SELLER, isVerified: true, adminApproved: true }
+      where: { role: sellerRole!, isVerified: true, adminApproved: true }
     });
 
     // Get existing shops to avoid duplicates

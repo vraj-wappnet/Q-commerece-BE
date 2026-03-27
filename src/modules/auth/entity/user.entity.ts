@@ -1,5 +1,5 @@
-import { UserRole } from "src/common/enum/roles.enum";
-import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn } from "typeorm";
+import { Role } from "src/modules/roles-permission/entity/roles.entity";
+import { Column, Entity, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne } from "typeorm";
 
 @Entity()
 export class User {
@@ -21,10 +21,8 @@ export class User {
   @Column({ unique: true })
   mobile: string;
 
-  @Column({
-    type: "smallint",
-  })
-  role: UserRole;
+  @ManyToOne(() => Role)
+  role: Role;
 
   @Column({ default: false })
   isVerified: boolean;

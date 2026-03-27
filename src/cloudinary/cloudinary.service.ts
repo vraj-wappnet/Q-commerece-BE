@@ -27,7 +27,6 @@ async uploadMedia(file: Express.Multer.File): Promise<UploadApiResponse> {
   let resourceType: "image" | "video" | "raw" = "image";
   let folder = "q-commerce";
 
-  // 🔥 Detect type and set folder
   if (mime.startsWith("image")) {
     resourceType = "image";
     folder = "q-commerce/images";
@@ -46,7 +45,6 @@ async uploadMedia(file: Express.Multer.File): Promise<UploadApiResponse> {
     throw new Error(`Unsupported file type: ${mime}`);
   }
 
-  // 🔥 Size validation (in bytes)
   const size = file.size;
 
   if (resourceType === "image" && !isPdf && size > 5 * 1024 * 1024) {

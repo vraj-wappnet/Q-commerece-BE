@@ -7,9 +7,10 @@ import {
   Body,
   UseGuards,
   Req,
+  Query,
 } from '@nestjs/common';
 
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 
 import { DeliveryProfileService } from './delivery-profile.service';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -19,6 +20,7 @@ import { CreateDeliveryProfileDto } from './dto/create-delivery-profile.dto';
 import { UpdateDeliveryProfileDto } from './dto/update-delivery-profile.dto';
 import { UserRole } from 'src/common/enum/roles.enum';
 import { jwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { FilterDeliveryProfileDto } from './dto/filter-delivery-profile.dto';
 
 @ApiTags('Delivery Profile')
 @Controller('delivery-profile')
@@ -34,8 +36,9 @@ export class DeliveryProfileController {
   @UseGuards(jwtAuthGuard, RolesGuard)
   @Get()
   @Roles(UserRole.ADMIN)
-  findAll() {
-    return this.service.findAll();
+  @ApiQuery({ type: FilterDeliveryProfileDto })
+  findAll(@Query() query: FilterDeliveryProfileDto) {
+    return this.service.findAll(query);
   }
 
   @ApiBearerAuth()

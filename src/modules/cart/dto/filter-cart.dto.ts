@@ -1,49 +1,79 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 import { IsOptional, IsNumber, IsString, IsBoolean } from "class-validator";
 
 export class FilterCartDto {
-  @ApiProperty({ required: false, description: "Search by user email or name" })
+  @ApiPropertyOptional({ description: "Search by user email or name", example: "john" })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiProperty({ required: false, description: "Filter by user ID" })
+  @ApiPropertyOptional({ description: "Filter by user ID", example: "uuid-user-id" })
   @IsOptional()
   @IsString()
   userId?: string;
 
-  @ApiProperty({ required: false, description: "Filter by active status" })
+  @ApiPropertyOptional({ description: "Filter by active status", example: true })
   @IsOptional()
+  @Type(() => Boolean)
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiProperty({ required: false, description: "Minimum total amount" })
+  @ApiPropertyOptional({ description: "Minimum total amount", example: 100 })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   minTotalAmount?: number;
 
-  @ApiProperty({ required: false, description: "Maximum total amount" })
+  @ApiPropertyOptional({ description: "Maximum total amount", example: 1000 })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   maxTotalAmount?: number;
 
-  @ApiProperty({ required: false, description: "Sort by field", example: "createdAt" })
+  @ApiPropertyOptional({
+    description: "Sort field",
+    enum: ["createdAt", "updatedAt", "totalAmount", "totalItems"],
+    example: "createdAt",
+  })
   @IsOptional()
   @IsString()
   sortBy?: string;
 
-  @ApiProperty({ required: false, description: "Sort order", example: "DESC" })
+  @ApiPropertyOptional({ description: "Sort order", enum: ["ASC", "DESC"], example: "DESC" })
   @IsOptional()
   @IsString()
-  sortOrder?: 'ASC' | 'DESC';
+  sortOrder?: "ASC" | "DESC" | "asc" | "desc";
 
-  @ApiProperty({ required: false, description: "Page number", example: 1 })
+  @ApiPropertyOptional({ description: "Created from date (ISO)", example: "2026-01-01" })
   @IsOptional()
+  @IsString()
+  createdFrom?: string;
+
+  @ApiPropertyOptional({ description: "Created to date (ISO)", example: "2026-12-31" })
+  @IsOptional()
+  @IsString()
+  createdTo?: string;
+
+  @ApiPropertyOptional({ description: "Updated from date (ISO)", example: "2026-01-01" })
+  @IsOptional()
+  @IsString()
+  updatedFrom?: string;
+
+  @ApiPropertyOptional({ description: "Updated to date (ISO)", example: "2026-12-31" })
+  @IsOptional()
+  @IsString()
+  updatedTo?: string;
+
+  @ApiPropertyOptional({ description: "Page number", example: 1 })
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   page?: number;
 
-  @ApiProperty({ required: false, description: "Items per page", example: 10 })
+  @ApiPropertyOptional({ description: "Items per page (max 100)", example: 10 })
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   limit?: number;
 }

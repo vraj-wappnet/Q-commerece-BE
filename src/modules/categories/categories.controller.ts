@@ -1,5 +1,5 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { jwtAuthGuard } from "src/common/guards/jwt-auth.guard";
 import { RolesGuard } from "src/common/guards/roles.guard";
 import { Roles } from "src/common/decorators/roles.decorator";
@@ -9,6 +9,8 @@ import { CreateCategoryDto } from "./dto/create-category.dto";
 import { CreateSubCategoryDto } from "./dto/create-subcategory.dto";
 import { UpdateCategoryDto } from "./dto/update-category.dto";
 import { UpdateSubCategoryDto } from "./dto/update-subcategory.dto";
+import { FilterCategoryDto } from "./dto/filter-category.dto";
+import { FilterSubCategoryDto } from "./dto/filter-subcategory.dto";
 
 @ApiTags("categories")
 @Controller("categories")
@@ -16,13 +18,15 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
-  getAll() {
-    return this.categoriesService.getAll();
+  @ApiQuery({ type: FilterCategoryDto })
+  getAll(@Query() query: FilterCategoryDto) {
+    return this.categoriesService.getAll(query);
   }
 
   @Get("subcategories")
-  getAllSubCategories() {
-    return this.categoriesService.getAllSubCategories();
+  @ApiQuery({ type: FilterSubCategoryDto })
+  getAllSubCategories(@Query() query: FilterSubCategoryDto) {
+    return this.categoriesService.getAllSubCategories(query);
   }
 
   @Get(":categoryId/subcategories")

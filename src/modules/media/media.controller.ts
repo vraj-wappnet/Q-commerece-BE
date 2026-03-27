@@ -2,22 +2,26 @@ import {
   BadRequestException,
   Controller,
   Post,
-  UploadedFile,
   UploadedFiles,
   UseInterceptors,
+  Get,
+  UseGuards,
 } from "@nestjs/common";
 import { FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
-import { ApiBody, ApiConsumes, ApiTags } from "@nestjs/swagger";
+import { ApiBody, ApiConsumes, ApiTags, ApiOperation, ApiResponse } from "@nestjs/swagger";
 import { CloudinaryService } from "src/cloudinary/cloudinary.service";
+import { PermissionGuard } from "src/modules/roles-permission/permission.guard";
+import { Permission } from "src/modules/roles-permission/permissions.decorator";
+import { jwtAuthGuard } from "src/common/guards/jwt-auth.guard";
 
-@ApiTags("Media Upload")
+@ApiTags("Media Upload - Multiple Files (Max 5)")
 @Controller("media")
-@ApiTags("Media Upload")
-@Controller("media")
+@UseGuards(jwtAuthGuard, PermissionGuard)
 export class MediaController {
   constructor(private cloudinaryService: CloudinaryService) {}
 
   @Post("upload-media")
+  @Permission("MANAGE_MEDIA")
   @ApiConsumes("multipart/form-data")
   @ApiBody({
     schema: {

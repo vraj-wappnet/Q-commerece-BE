@@ -14,6 +14,7 @@ import {
 import {
   ApiTags,
   ApiBearerAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { CartService } from './cart.service';
 import { AddToCartDto } from './dto/add-to-cart.dto';
@@ -49,6 +50,7 @@ export class CartController {
 
   @Get('all')
   @Roles(UserRole.ADMIN)
+  @ApiQuery({ type: FilterCartDto })
   getAllCarts(@Query() query: FilterCartDto) {
     return this.cartService.getAllCarts(query);
   }

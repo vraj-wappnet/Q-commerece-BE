@@ -4,7 +4,7 @@ import { Repository } from "typeorm";
 import { Product } from "./entity/product.entity";
 import { Shop } from "src/modules/shops/entity/shop.entity";
 import { CreateProductDto } from "./dto/create-product.dto";
-import { UserRole } from "src/common/enum/roles.enum";
+import { Role } from "src/modules/roles-permission/entity/roles.entity";
 import { User } from "src/modules/auth/entity/user.entity";
 import { UpdateProductDto } from "./dto/update-product.dto";
 import { FilterProductDto } from "./dto/filter-product.dto";
@@ -46,7 +46,7 @@ export class ProductsService {
       throw new BadRequestException("Shop not found");
     }
 
-    if (user.role !== UserRole.ADMIN && shop.seller.id !== user.id) {
+    if (user.role?.name !== 'ADMIN' && shop.seller?.id !== user.id) {
       throw new BadRequestException(
         "You are not authorized to add product to this shop",
       );
@@ -178,8 +178,7 @@ export class ProductsService {
     if (!product) {
       throw new BadRequestException("Product not found");
     }
-
-    if (user.role !== UserRole.ADMIN && product.shop?.seller?.id !== user.id) {
+    if (user.role?.name !== 'ADMIN' && product.shop?.seller?.id !== user.id) {
       throw new BadRequestException("Unauthorized to update this product");
     }
 
@@ -194,7 +193,7 @@ export class ProductsService {
         throw new BadRequestException("Shop not found");
       }
 
-      if (user.role !== UserRole.ADMIN && shop.seller.id !== user.id) {
+      if (user.role?.name !== 'ADMIN' && shop.seller?.id !== user.id) {
         throw new BadRequestException(
           "You are not authorized to move product to this shop",
         );
@@ -278,7 +277,7 @@ export class ProductsService {
       throw new BadRequestException("Product not found");
     }
 
-    if (user.role !== UserRole.ADMIN && product.shop?.seller?.id !== user.id) {
+    if (user.role?.name !== 'ADMIN' && product.shop?.seller?.id !== user.id) {
       throw new BadRequestException("Unauthorized to delete this product");
     }
 

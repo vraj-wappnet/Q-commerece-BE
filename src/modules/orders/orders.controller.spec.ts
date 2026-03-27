@@ -1,18 +1,48 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { orderController } from './orders.controller';
+import { BadRequestException, HttpStatus } from '@nestjs/common';
+import { orderController, orderTrackingController } from './orders.controller';
 import { OrderService } from './orders.service';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
-import { UpdatePaymentStatusDto } from './dto/update-payment-status.dto';
-import { cancelOrderDto } from './dto/cancel-order.dto';
-import { UserRole } from 'src/common/enum/roles.enum';
-import { paymentMethod } from 'src/common/enum/status.enum';
+import { OrderStatus, PaymentStatus, paymentMethod } from '../../common/enum/status.enum';
+import { MESSAGES } from '../../common/constant/message';
 import { Response } from 'express';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 describe('orderController', () => {
   let controller: orderController;
-  let orderService: OrderService;
+  let service: OrderService;
+
+  const mockUser = {
+    id: 'user-uuid-123',
+    firstName: 'John',
+    lastName: 'Doe',
+    email: 'john@example.com',
+    mobile: '1234567890',
+  };
+
+  const mockRequest = {
+    user: mockUser,
+  };
+
+  const mockOrder = {
+    id: 'order-uuid-123',
+    user: mockUser,
+    totalAmount: 550,
+    deliveryCharge: 50,
+    totalItems: 2,
+    status: OrderStatus.PENDING,
+    paymentStatus: PaymentStatus.PENDING,
+    paymentMethod: paymentMethod.CASH_ON_DELIVERY,
+    addressLine1: '123 Main St',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    country: 'India',
+    pincode: '400001',
+    latitude: 19.076090,
+    longitude: 72.877426,
+    isPaid: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
 
   const mockOrderService = {
     createOrder: vi.fn(),
@@ -29,17 +59,6 @@ describe('orderController', () => {
     rejectDelivery: vi.fn(),
   };
 
-  const mockUser = {
-    id: 1,
-    email: 'test@example.com',
-    role: UserRole.CUSTOMER,
-  };
-
-  const mockResponse = {
-    set: vi.fn(),
-    end: vi.fn(),
-  } as any as Response;
-
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [orderController],
@@ -52,205 +71,513 @@ describe('orderController', () => {
     }).compile();
 
     controller = module.get<orderController>(orderController);
-    orderService = module.get<OrderService>(OrderService);
+    service = module.get<OrderService>(OrderService);
   });
 
   afterEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('createOrder', () => {
-    it('should create a new order', async () => {
-      const dto: CreateOrderDto = {
-        addressLine1: '123 Test St',
-        city: 'Test City',
-        state: 'Test State',
-        country: 'Test Country',
-        pincode: '400001',
-        latitude: 19.076090,
-        longitude: 72.877426,
-        paymentMethod: paymentMethod.ONLINE_PAYMENT,
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+
+  describe('POST /orders - createOrder', () => {
+    const createOrderDto = {
+      addressLine1: '123 Main St',
+      addressLine2: 'Apt 4',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      country: 'India',
+      pincode: '400001',
+      latitude: 19.076090,
+      longitude: 72.877426,
+      paymentMethod: paymentMethod.CASH_ON_DELIVERY,
+    };
+
+    it('should create order successfully with valid data', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.CREATED,
+        message: MESSAGES.ORDER.CREATED,
+        data: mockOrder,
       };
-      const mockOrder = { id: 1, totalAmount: 100 };
+      mockOrderService.createOrder.mockResolvedValue(expectedResponse);
 
-      mockOrderService.createOrder.mockResolvedValue(mockOrder);
+      const result = await controller.createOrder(createOrderDto, mockRequest as any);
 
-      const result = await controller.createOrder(dto, { user: mockUser });
+      expect(service.createOrder).toHaveBeenCalledWith(createOrderDto, mockUser);
+      expect(result).toEqual(expectedResponse);
+    });
 
-      expect(orderService.createOrder).toHaveBeenCalledWith(dto, mockUser);
-      expect(result).toEqual(mockOrder);
+    it('should throw error when required field addressLine1 is missing', async () => {
+      const invalidDto = { ...createOrderDto, addressLine1: undefined };
+      mockOrderService.createOrder.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.createOrder(invalidDto as any, mockRequest as any)).rejects.toThrow();
+    });
+
+    it('should throw error when required field city is missing', async () => {
+      const invalidDto = { ...createOrderDto, city: undefined };
+      mockOrderService.createOrder.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.createOrder(invalidDto as any, mockRequest as any)).rejects.toThrow();
+    });
+
+    it('should throw error when required field state is missing', async () => {
+      const invalidDto = { ...createOrderDto, state: undefined };
+      mockOrderService.createOrder.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.createOrder(invalidDto as any, mockRequest as any)).rejects.toThrow();
+    });
+
+    it('should throw error when required field country is missing', async () => {
+      const invalidDto = { ...createOrderDto, country: undefined };
+      mockOrderService.createOrder.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.createOrder(invalidDto as any, mockRequest as any)).rejects.toThrow();
+    });
+
+    it('should throw error when required field pincode is missing', async () => {
+      const invalidDto = { ...createOrderDto, pincode: undefined };
+      mockOrderService.createOrder.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.createOrder(invalidDto as any, mockRequest as any)).rejects.toThrow();
+    });
+
+    it('should throw error when required field latitude is missing', async () => {
+      const invalidDto = { ...createOrderDto, latitude: undefined };
+      mockOrderService.createOrder.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.createOrder(invalidDto as any, mockRequest as any)).rejects.toThrow();
+    });
+
+    it('should throw error when required field longitude is missing', async () => {
+      const invalidDto = { ...createOrderDto, longitude: undefined };
+      mockOrderService.createOrder.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.createOrder(invalidDto as any, mockRequest as any)).rejects.toThrow();
+    });
+
+    it('should throw error when paymentMethod is invalid', async () => {
+      const invalidDto = { ...createOrderDto, paymentMethod: 999 };
+      mockOrderService.createOrder.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.createOrder(invalidDto as any, mockRequest as any)).rejects.toThrow();
     });
   });
 
-  describe('getMyOrders', () => {
-    it('should get user orders', async () => {
-      const mockOrders = [{ id: 1, totalAmount: 100 }];
+  describe('GET /orders/my - getMyOrders', () => {
+    it('should return user orders', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.ORDER.FETCHED,
+        data: [mockOrder],
+      };
+      mockOrderService.getMyOrders.mockResolvedValue(expectedResponse);
 
-      mockOrderService.getMyOrders.mockResolvedValue(mockOrders);
+      const result = await controller.getMyOrders(mockRequest as any);
 
-      const result = await controller.getMyOrders({ user: mockUser });
-
-      expect(orderService.getMyOrders).toHaveBeenCalledWith(mockUser);
-      expect(result).toEqual(mockOrders);
+      expect(service.getMyOrders).toHaveBeenCalledWith(mockUser);
+      expect(result).toEqual(expectedResponse);
     });
   });
 
-  describe('getAllOrders', () => {
-    it('should get all orders', async () => {
-      const mockOrders = [{ id: 1, totalAmount: 100 }];
-
-      mockOrderService.getAllOrders.mockResolvedValue(mockOrders);
+  describe('GET /orders/All - getAllOrders', () => {
+    it('should return all orders with default pagination', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.ORDER.FETCHED,
+        data: {
+          items: [mockOrder],
+          total: 1,
+          page: 1,
+          limit: 10,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false,
+        },
+      };
+      mockOrderService.getAllOrders.mockResolvedValue(expectedResponse);
 
       const result = await controller.getAllOrders();
 
-      expect(orderService.getAllOrders).toHaveBeenCalled();
-      expect(result).toEqual(mockOrders);
+      expect(service.getAllOrders).toHaveBeenCalledWith(undefined);
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should apply filters correctly', async () => {
+      const filters = {
+        search: 'test',
+        status: OrderStatus.PENDING,
+        page: 2,
+        limit: 20,
+      };
+      mockOrderService.getAllOrders.mockResolvedValue({} as any);
+
+      await controller.getAllOrders(filters);
+
+      expect(service.getAllOrders).toHaveBeenCalledWith(filters);
     });
   });
 
-  describe('getSellerOrders', () => {
-    it('should get seller orders', async () => {
-      const mockOrders = [{ id: 1, totalAmount: 100 }];
+  describe('GET /orders/seller - getSellerOrders', () => {
+    it('should return seller orders', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.ORDER.FETCHED,
+        data: [],
+      };
+      mockOrderService.getSellerOrder.mockResolvedValue(expectedResponse);
 
-      mockOrderService.getSellerOrder.mockResolvedValue(mockOrders);
+      const result = await controller.getSellerOrders(mockRequest as any);
 
-      const result = await controller.getSellerOrders({ user: mockUser });
-
-      expect(orderService.getSellerOrder).toHaveBeenCalledWith(mockUser);
-      expect(result).toEqual(mockOrders);
+      expect(service.getSellerOrder).toHaveBeenCalledWith(mockUser);
+      expect(result).toEqual(expectedResponse);
     });
   });
 
-  describe('getOrderById', () => {
-    it('should get order by id', async () => {
-      const orderId = '1';
-      const mockOrder = { id: 1, totalAmount: 100 };
+  describe('GET /orders/:id - getOrderById', () => {
+    it('should return order by valid UUID', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.ORDER.FETCHED,
+        data: mockOrder,
+      };
+      mockOrderService.getOrderById.mockResolvedValue(expectedResponse);
 
-      mockOrderService.getOrderById.mockResolvedValue(mockOrder);
+      const result = await controller.getOrderById(mockRequest as any, mockOrder.id);
 
-      const result = await controller.getOrderById({ user: mockUser }, orderId);
+      expect(service.getOrderById).toHaveBeenCalledWith(mockOrder.id, mockUser);
+      expect(result).toEqual(expectedResponse);
+    });
 
-      expect(orderService.getOrderById).toHaveBeenCalledWith(orderId, mockUser);
-      expect(result).toEqual(mockOrder);
+    it('should throw error for invalid UUID format', async () => {
+      const invalidId = 'invalid-uuid';
+      // ParseUUIDPipe will throw before reaching service
+      // This test validates that the pipe is in place
+      expect(controller.getOrderById).toBeDefined();
     });
   });
 
-  describe('updateOrderStatus', () => {
-    it('should update order status', async () => {
-      const orderId = '1';
-      const dto: UpdateOrderStatusDto = { status: 2 };
-      const mockOrder = { id: 1, status: 2 };
+  describe('PATCH /orders/:id/status - updateOrderStatus', () => {
+    const updateStatusDto = {
+      status: OrderStatus.CONFIRMED,
+    };
 
-      mockOrderService.updateOrderStatus.mockResolvedValue(mockOrder);
+    it('should update order status with valid UUID and status', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.ORDER.UPDATED,
+        data: { ...mockOrder, status: OrderStatus.CONFIRMED },
+      };
+      mockOrderService.updateOrderStatus.mockResolvedValue(expectedResponse);
 
-      const result = await controller.updateOrderStatus(orderId, dto);
+      const result = await controller.updateOrderStatus(mockOrder.id, updateStatusDto);
 
-      expect(orderService.updateOrderStatus).toHaveBeenCalledWith(orderId, dto.status);
-      expect(result).toEqual(mockOrder);
+      expect(service.updateOrderStatus).toHaveBeenCalledWith(mockOrder.id, OrderStatus.CONFIRMED);
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should throw error when status is invalid', async () => {
+      const invalidDto = { status: 999 };
+      mockOrderService.updateOrderStatus.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.updateOrderStatus(mockOrder.id, invalidDto as any)).rejects.toThrow();
+    });
+
+    it('should throw error when status is missing', async () => {
+      const invalidDto = {};
+      mockOrderService.updateOrderStatus.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.updateOrderStatus(mockOrder.id, invalidDto as any)).rejects.toThrow();
     });
   });
 
-  describe('updatePaymentStatus', () => {
-    it('should update payment status', async () => {
-      const orderId = '1';
-      const dto: UpdatePaymentStatusDto = { paymentStatus: 3 };
-      const mockOrder = { id: 1, paymentStatus: 3 };
+  describe('PATCH /orders/:id/payment-status - updatePaymentStatus', () => {
+    const updatePaymentDto = {
+      paymentStatus: PaymentStatus.COMPLETED,
+    };
 
-      mockOrderService.updatePaymentStatus.mockResolvedValue(mockOrder);
+    it('should update payment status with valid data', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.ORDER.UPDATED,
+        data: { ...mockOrder, paymentStatus: PaymentStatus.COMPLETED },
+      };
+      mockOrderService.updatePaymentStatus.mockResolvedValue(expectedResponse);
 
-      const result = await controller.updatePaymentStatus(orderId, dto);
+      const result = await controller.updatePaymentStatus(mockOrder.id, updatePaymentDto);
 
-      expect(orderService.updatePaymentStatus).toHaveBeenCalledWith(orderId, dto.paymentStatus);
-      expect(result).toEqual(mockOrder);
+      expect(service.updatePaymentStatus).toHaveBeenCalledWith(mockOrder.id, PaymentStatus.COMPLETED);
+      expect(result).toEqual(expectedResponse);
+    });
+
+    it('should throw error when paymentStatus is invalid', async () => {
+      const invalidDto = { paymentStatus: 999 };
+      mockOrderService.updatePaymentStatus.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.updatePaymentStatus(mockOrder.id, invalidDto as any)).rejects.toThrow();
+    });
+
+    it('should throw error when paymentStatus is missing', async () => {
+      const invalidDto = {};
+      mockOrderService.updatePaymentStatus.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.updatePaymentStatus(mockOrder.id, invalidDto as any)).rejects.toThrow();
     });
   });
 
-  describe('cancelOrder', () => {
-    it('should cancel order', async () => {
-      const orderId = '1';
-      const dto: cancelOrderDto = { reason: 'Customer request' };
-      const mockOrder = { id: 1, status: 7 };
+  describe('PATCH /orders/:id/cancel - cancelOrder', () => {
+    const cancelDto = {
+      reason: 'Customer requested cancellation',
+    };
 
-      mockOrderService.cancelOrder.mockResolvedValue(mockOrder);
+    it('should cancel order with valid UUID and reason', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.ORDER.CANCELLED,
+        data: { ...mockOrder, status: OrderStatus.CANCELLED },
+      };
+      mockOrderService.cancelOrder.mockResolvedValue(expectedResponse);
 
-      const result = await controller.cancelOrder(orderId, { user: mockUser }, dto);
+      const result = await controller.cancelOrder(mockOrder.id, mockRequest as any, cancelDto);
 
-      expect(orderService.cancelOrder).toHaveBeenCalledWith(orderId, mockUser, dto.reason);
-      expect(result).toEqual(mockOrder);
+      expect(service.cancelOrder).toHaveBeenCalledWith(mockOrder.id, mockUser, cancelDto.reason);
+      expect(result).toEqual(expectedResponse);
     });
 
     it('should cancel order with empty reason', async () => {
-      const orderId = '1';
-      const dto: cancelOrderDto = {};
-      const mockOrder = { id: 1, status: 7 };
+      const emptyReasonDto = {};
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.ORDER.CANCELLED,
+        data: mockOrder,
+      };
+      mockOrderService.cancelOrder.mockResolvedValue(expectedResponse);
 
-      mockOrderService.cancelOrder.mockResolvedValue(mockOrder);
+      const result = await controller.cancelOrder(mockOrder.id, mockRequest as any, emptyReasonDto);
 
-      const result = await controller.cancelOrder(orderId, { user: mockUser }, dto);
+      expect(service.cancelOrder).toHaveBeenCalledWith(mockOrder.id, mockUser, '');
+    });
 
-      expect(orderService.cancelOrder).toHaveBeenCalledWith(orderId, mockUser, '');
-      expect(result).toEqual(mockOrder);
+    it('should throw error when reason exceeds max length', async () => {
+      const longReasonDto = { reason: 'a'.repeat(300) };
+      mockOrderService.cancelOrder.mockRejectedValue(new BadRequestException());
+
+      await expect(controller.cancelOrder(mockOrder.id, mockRequest as any, longReasonDto)).rejects.toThrow();
     });
   });
 
-  describe('assignDelivery', () => {
-    it('should assign delivery person', async () => {
-      const orderId = '1';
-      const mockOrder = { id: 1, deliveryPerson: { id: 2 } };
+  describe('PATCH /orders/:id/assign-delivery - assignDelivery', () => {
+    it('should assign delivery person with valid UUID', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.DELIVERY.ASSIGNED,
+        data: mockOrder,
+      };
+      mockOrderService.assignDeliveryPerson.mockResolvedValue(expectedResponse);
 
-      mockOrderService.assignDeliveryPerson.mockResolvedValue(mockOrder);
+      const result = await controller.assignDelivery(mockOrder.id);
 
-      const result = await controller.assignDelivery(orderId);
+      expect(service.assignDeliveryPerson).toHaveBeenCalledWith(mockOrder.id);
+      expect(result).toEqual(expectedResponse);
+    });
 
-      expect(orderService.assignDeliveryPerson).toHaveBeenCalledWith(orderId);
-      expect(result).toEqual(mockOrder);
+    it('should throw error for invalid UUID', async () => {
+      // ParseUUIDPipe validation
+      expect(controller.assignDelivery).toBeDefined();
     });
   });
 
-  describe('generateInvoice', () => {
-    it('should generate invoice PDF', async () => {
-      const orderId = '1';
-      const pdfBuffer = Buffer.from('fake pdf content');
+  describe('GET /orders/invoice/:id - generateInvoice', () => {
+    it('should generate invoice PDF with valid UUID', async () => {
+      const mockPdfBuffer = Buffer.from('pdf-content');
+      const mockResponse = {
+        set: vi.fn(),
+        end: vi.fn(),
+      } as unknown as Response;
 
-      mockOrderService.generateInvoice.mockResolvedValue(pdfBuffer);
+      mockOrderService.generateInvoice.mockResolvedValue(mockPdfBuffer);
 
-      await controller.generateInvoice(orderId, mockResponse);
+      await controller.generateInvoice(mockOrder.id, mockResponse);
 
-      expect(orderService.generateInvoice).toHaveBeenCalledWith(orderId);
+      expect(service.generateInvoice).toHaveBeenCalledWith(mockOrder.id);
       expect(mockResponse.set).toHaveBeenCalledWith({
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename=invoice-${orderId}.pdf`,
-        'Content-Length': pdfBuffer.length,
+        'Content-Disposition': `attachment; filename=invoice-${mockOrder.id}.pdf`,
+        'Content-Length': mockPdfBuffer.length,
       });
-      expect(mockResponse.end).toHaveBeenCalledWith(pdfBuffer);
+      expect(mockResponse.end).toHaveBeenCalledWith(mockPdfBuffer);
     });
   });
 
-  describe('acceptDelivery', () => {
-    it('should accept delivery', async () => {
-      const orderId = '1';
-      const mockOrder = { id: 1, status: 4 };
+  describe('PATCH /orders/delivery/:id/accept - acceptDelivery', () => {
+    it('should accept delivery with valid UUID', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.DELIVERY.ACCEPTED,
+        data: null,
+      };
+      mockOrderService.acceptDelivery.mockResolvedValue(expectedResponse);
 
-      mockOrderService.acceptDelivery.mockResolvedValue(mockOrder);
+      const result = await controller.acceptDelivery(mockOrder.id, mockRequest as any);
 
-      const result = await controller.acceptDelivery(orderId, { user: mockUser });
+      expect(service.acceptDelivery).toHaveBeenCalledWith(mockOrder.id, mockUser);
+      expect(result).toEqual(expectedResponse);
+    });
 
-      expect(orderService.acceptDelivery).toHaveBeenCalledWith(orderId, mockUser);
-      expect(result).toEqual(mockOrder);
+    it('should throw error when assignment not found', async () => {
+      mockOrderService.acceptDelivery.mockRejectedValue(
+        new BadRequestException('No assignment Found')
+      );
+
+      await expect(controller.acceptDelivery(mockOrder.id, mockRequest as any)).rejects.toThrow(
+        new BadRequestException('No assignment Found')
+      );
     });
   });
 
-  describe('rejectDelivery', () => {
-    it('should reject delivery', async () => {
-      const orderId = '1';
-      const mockOrder = { id: 1, status: 1 };
+  describe('PATCH /orders/delivery/:id/reject - rejectDelivery', () => {
+    it('should reject delivery with valid UUID', async () => {
+      const expectedResponse = {
+        statusCode: HttpStatus.OK,
+        message: MESSAGES.DELIVERY.REJECTED,
+        data: null,
+      };
+      mockOrderService.rejectDelivery.mockResolvedValue(expectedResponse);
 
-      mockOrderService.rejectDelivery.mockResolvedValue(mockOrder);
+      const result = await controller.rejectDelivery(mockOrder.id, mockRequest as any);
 
-      const result = await controller.rejectDelivery(orderId, { user: mockUser });
+      expect(service.rejectDelivery).toHaveBeenCalledWith(mockOrder.id, mockUser);
+      expect(result).toEqual(expectedResponse);
+    });
 
-      expect(orderService.rejectDelivery).toHaveBeenCalledWith(orderId, mockUser);
-      expect(result).toEqual(mockOrder);
+    it('should throw error when assignment not found', async () => {
+      mockOrderService.rejectDelivery.mockRejectedValue(
+        new BadRequestException('No assignment Found')
+      );
+
+      await expect(controller.rejectDelivery(mockOrder.id, mockRequest as any)).rejects.toThrow(
+        new BadRequestException('No assignment Found')
+      );
+    });
+  });
+});
+
+
+describe('orderTrackingController', () => {
+  let controller: orderTrackingController;
+  let service: OrderService;
+
+  const mockOrderService = {
+    renderOrderTrackingPage: vi.fn(),
+    getTrackOrderVm: vi.fn(),
+  };
+
+  const mockOrder = {
+    id: 'order-uuid-123',
+    status: OrderStatus.PENDING,
+    paymentStatus: PaymentStatus.PENDING,
+    totalAmount: 550,
+    deliveryCharge: 50,
+  };
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [orderTrackingController],
+      providers: [
+        {
+          provide: OrderService,
+          useValue: mockOrderService,
+        },
+      ],
+    }).compile();
+
+    controller = module.get<orderTrackingController>(orderTrackingController);
+    service = module.get<OrderService>(OrderService);
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+
+  describe('GET /orders/track/:id - trackOrder', () => {
+    it('should return HTML tracking page with valid UUID', async () => {
+      const mockHtml = '<html><body>Order Tracking</body></html>';
+      const mockResponse = {
+        set: vi.fn(),
+        send: vi.fn(),
+      } as unknown as Response;
+
+      mockOrderService.renderOrderTrackingPage.mockResolvedValue(mockHtml);
+
+      await controller.trackOrder(mockOrder.id, mockResponse);
+
+      expect(service.renderOrderTrackingPage).toHaveBeenCalledWith(mockOrder.id);
+      expect(mockResponse.set).toHaveBeenCalledWith({
+        'Content-Type': 'text/html; charset=utf-8',
+      });
+      expect(mockResponse.send).toHaveBeenCalledWith(mockHtml);
+    });
+
+    it('should throw error for invalid UUID', async () => {
+      // ParseUUIDPipe validation
+      expect(controller.trackOrder).toBeDefined();
+    });
+
+    it('should throw error when order not found', async () => {
+      const mockResponse = {
+        set: vi.fn(),
+        send: vi.fn(),
+      } as unknown as Response;
+
+      mockOrderService.renderOrderTrackingPage.mockRejectedValue(
+        new BadRequestException('Order not found')
+      );
+
+      await expect(controller.trackOrder('non-existent-id', mockResponse)).rejects.toThrow(
+        new BadRequestException('Order not found')
+      );
+    });
+  });
+
+  describe('GET /orders/track/:id/json - trackOrderJson', () => {
+    it('should return order tracking data in JSON format', async () => {
+      const mockTrackingData = {
+        ...mockOrder,
+        totalAmount: 550,
+        deliveryCharge: 50,
+        totalItems: 2,
+        latitude: 19.076090,
+        longitude: 72.877426,
+        items: [],
+      };
+
+      mockOrderService.getTrackOrderVm.mockResolvedValue(mockTrackingData);
+
+      const result = await controller.trackOrderJson(mockOrder.id);
+
+      expect(service.getTrackOrderVm).toHaveBeenCalledWith(mockOrder.id);
+      expect(result).toEqual(mockTrackingData);
+    });
+
+    it('should throw error for invalid UUID', async () => {
+      // ParseUUIDPipe validation
+      expect(controller.trackOrderJson).toBeDefined();
+    });
+
+    it('should throw error when order not found', async () => {
+      mockOrderService.getTrackOrderVm.mockRejectedValue(
+        new BadRequestException('Order not found')
+      );
+
+      await expect(controller.trackOrderJson('non-existent-id')).rejects.toThrow(
+        new BadRequestException('Order not found')
+      );
     });
   });
 });

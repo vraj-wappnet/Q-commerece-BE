@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { UserRole } from "src/common/enum/roles.enum";
+import { Role } from "src/modules/roles-permission/entity/roles.entity";
 
 export class UserProfileVm {
   @ApiProperty({
@@ -34,10 +34,10 @@ export class UserProfileVm {
 
   @ApiProperty({
     description: "User's role",
-    enum: UserRole,
-    example: UserRole.CUSTOMER
+    enum: Role,
+    example: { id: 3, name: "CUSTOMER", description: "Regular customer with basic access" }
   })
-  role: UserRole;
+  role: Role;
 
   @ApiProperty({
     description: "Whether the user has verified their email",
@@ -147,10 +147,10 @@ export class UserPublicVm {
 
   @ApiProperty({
     description: "User role",
-    enum: UserRole,
-    example: UserRole.CUSTOMER
+    enum: Role,
+    example: { id: 3, name: "CUSTOMER", description: "Regular customer with basic access" }
   })
-  role: UserRole;
+  role: Role;
 }
 
 export class UserAdminVm {
@@ -180,10 +180,10 @@ export class UserAdminVm {
 
   @ApiProperty({
     description: "User's role",
-    enum: UserRole,
-    example: UserRole.CUSTOMER
+    enum: Role,
+    example: { id: 3, name: "CUSTOMER", description: "Regular customer with basic access" }
   })
-  role: UserRole;
+  role: Role;
 
   @ApiProperty({
     description: "Verification status",
@@ -307,10 +307,10 @@ export class UserListVm {
 
   @ApiProperty({
     description: "User role",
-    enum: UserRole,
-    example: UserRole.CUSTOMER
+    enum: Role,
+    example: { id: 3, name: "CUSTOMER", description: "Regular customer with basic access" }
   })
-  role: UserRole;
+  role: Role;
 
   @ApiProperty({
     description: "Verification status",

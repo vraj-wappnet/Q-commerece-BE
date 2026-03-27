@@ -14,6 +14,8 @@ import { OrderItem } from "src/modules/orders/entity/order-item.entity";
 import { DeliveryProfile } from "src/modules/delivery_profiles/entity/delivery-profile.entity";
 import { DeliveryAssignment } from "src/modules/order_delivery_assignment/entity/delivery_assignment.entity";
 import { Notification } from "../modules/notifications/entity/notification.entity";
+import { Role } from "../modules/roles-permission/entity/roles.entity";
+import { Permission } from "../modules/roles-permission/entity/permission.entity";
 
 config();
 
@@ -38,6 +40,8 @@ const options: DataSourceOptions & SeederOptions = {
     DeliveryProfile,
     DeliveryAssignment,
     Notification,
+    Role,
+    Permission,
   ],
   migrations: ["src/database/migrations/*.ts"],
   synchronize: false,

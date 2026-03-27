@@ -4,87 +4,90 @@ import {
   Get,
   Param,
   Patch,
+  ParseUUIDPipe,
   Post,
+  Query,
   Req,
   Res,
   UseGuards,
 } from "@nestjs/common";
 import type { Response } from 'express';
-import { ApiBearerAuth, ApiTags, ApiBody, ApiOkResponse } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiTags, ApiBody, ApiOkResponse, ApiQuery } from "@nestjs/swagger";
 import { jwtAuthGuard } from "src/common/guards/jwt-auth.guard";
-import { RolesGuard } from "src/common/guards/roles.guard";
+import { PermissionGuard } from "src/modules/roles-permission/permission.guard";
+import { Permission } from "src/modules/roles-permission/permissions.decorator";
 import { OrderService } from "./orders.service";
 import { CreateOrderDto } from "./dto/create-order.dto";
-import { Roles } from "src/common/decorators/roles.decorator";
-import { UserRole } from "src/common/enum/roles.enum";
 import { UpdateOrderStatusDto } from "./dto/update-order-status.dto";
 import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
 import { cancelOrderDto } from "./dto/cancel-order.dto";
 import { TrackOrderVm } from "./vm/track-order.vm";
+import { FilterOrderDto } from "./dto/filter-order.dto";
 
 @ApiTags("orders")
 @ApiBearerAuth()
-@UseGuards(jwtAuthGuard, RolesGuard)
+@UseGuards(jwtAuthGuard, PermissionGuard)
 @Controller("orders")
 export class orderController {
   constructor(private orderService: OrderService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
+  @Permission("CREATE_ORDER")
   @ApiBody({ type: CreateOrderDto })
   createOrder(@Body() dto: CreateOrderDto, @Req() req) {
     return this.orderService.createOrder(dto, req.user);
   }
 
   @Get("my")
-  @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
+  @Permission("READ_ORDER")
   getMyOrders(@Req() req) {
     return this.orderService.getMyOrders(req.user);
   }
 
   @Get("All")
-  @Roles(UserRole.ADMIN)
-  getAllOrders() {
-    return this.orderService.getAllOrders();
+  @Permission("READ_ORDER")
+  @ApiQuery({ type: FilterOrderDto })
+  getAllOrders(@Query() query?: FilterOrderDto) {
+    return this.orderService.getAllOrders(query);
   }
 
   @Get("seller")
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Permission("READ_ORDER")
   getSellerOrders(@Req() req) {
     return this.orderService.getSellerOrder(req.user);
   }
 
   @Get(":id")
-  @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
-  getOrderById(@Req() req, @Param("id") id: string) {
+  @Permission("READ_ORDER")
+  getOrderById(@Req() req, @Param("id", new ParseUUIDPipe()) id: string) {
     return this.orderService.getOrderById(id, req.user);
   }
 
   @Patch(":id/status")
-  @Roles(UserRole.ADMIN, UserRole.DELIVERY)
+  @Permission("UPDATE_ORDER")
   @ApiBody({ type: UpdateOrderStatusDto })
   updateOrderStatus(
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.orderService.updateOrderStatus(id, dto.status);
   }
 
   @Patch(":id/payment-status")
-  @Roles(UserRole.ADMIN)
+  @Permission("UPDATE_ORDER")
   @ApiBody({ type: UpdatePaymentStatusDto })
   updatePaymentStatus(
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe()) id: string,
     @Body() dto: UpdatePaymentStatusDto,
   ) {
     return this.orderService.updatePaymentStatus(id, dto.paymentStatus);
   }
 
   @Patch(":id/cancel")
-  @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
+  @Permission("DELETE_ORDER")
   @ApiBody({ type: cancelOrderDto })
   cancelOrder(
-    @Param("id") id: string,
+    @Param("id", new ParseUUIDPipe()) id: string,
     @Req() req,
     @Body() dto: cancelOrderDto,
   ) {
@@ -92,14 +95,17 @@ export class orderController {
   }
 
   @Patch(":id/assign-delivery")
-  @Roles(UserRole.ADMIN)
-  assignDelivery(@Param("id") id: string) {
+  @Permission("MANAGE_DELIVERY")
+  assignDelivery(@Param("id", new ParseUUIDPipe()) id: string) {
     return this.orderService.assignDeliveryPerson(id);
   }
 
   @Get("invoice/:id")
-  @Roles(UserRole.ADMIN, UserRole.CUSTOMER)
-  async generateInvoice(@Param("id") id: string, @Res() res: Response) {
+  @Permission("READ_ORDER")
+  async generateInvoice(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Res() res: Response,
+  ) {
     const pdfBuffer = await this.orderService.generateInvoice(id);
 
     res.set({
@@ -112,25 +118,30 @@ export class orderController {
   }
 
   @Patch('delivery/:id/accept')
-  @Roles(UserRole.DELIVERY)
-  acceptDelivery(@Param('id') id: string , @Req() req) {
+  @Permission("MANAGE_DELIVERY")
+  acceptDelivery(@Param('id', new ParseUUIDPipe()) id: string, @Req() req) {
     return this.orderService.acceptDelivery(id, req.user);
   }
 
   @Patch('delivery/:id/reject')
-  @Roles(UserRole.DELIVERY)
-  rejectDelivery(@Param('id') id:string ,@Req() req){
+  @Permission("MANAGE_DELIVERY")
+  rejectDelivery(@Param('id', new ParseUUIDPipe()) id: string, @Req() req) {
     return this.orderService.rejectDelivery(id, req.user);
   }
 }
 
 @ApiTags("orders")
+@UseGuards(jwtAuthGuard, PermissionGuard)
 @Controller("orders")
 export class orderTrackingController {
   constructor(private orderService: OrderService) {}
 
   @Get("track/:id")
-  async trackOrder(@Param("id") id: string, @Res() res: Response) {
+  @Permission("READ_ORDER")
+  async trackOrder(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Res() res: Response,
+  ) {
     const html = await this.orderService.renderOrderTrackingPage(id);
 
     res.set({
@@ -141,8 +152,9 @@ export class orderTrackingController {
   }
 
   @Get("track/:id/json")
+  @Permission("READ_ORDER")
   @ApiOkResponse({ type: TrackOrderVm })
-  trackOrderJson(@Param("id") id: string) {
+  trackOrderJson(@Param("id", new ParseUUIDPipe()) id: string) {
     return this.orderService.getTrackOrderVm(id);
   }
 }

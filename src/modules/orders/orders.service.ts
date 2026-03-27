@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Inject } from "@nestjs/common";
+import { BadRequestException, HttpStatus, Injectable, Inject } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { Order } from "./entity/order.entity";
@@ -20,6 +20,8 @@ import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
 import * as QRCode from 'qrcode';
 import { TrackOrderVm } from "./vm/track-order.vm";
+import { MESSAGES } from "src/common/constant/message";
+import { FilterOrderDto } from "./dto/filter-order.dto";
 
 @Injectable()
 export class OrderService {
@@ -89,8 +91,8 @@ export class OrderService {
       latitude: dto.latitude,
       longitude: dto.longitude,
       paymentMethod: dto.paymentMethod,
-      paymentStatus: dto.paymentMethod === paymentMethod.CASH_ON_DELIVERY 
-        ? PaymentStatus.PENDING 
+      paymentStatus: dto.paymentMethod === paymentMethod.CASH_ON_DELIVERY
+        ? PaymentStatus.PENDING
         : PaymentStatus.PENDING,
     });
 
@@ -147,15 +149,24 @@ export class OrderService {
     }
 
     await this.autoAssignDelivery(saveOrder.id);
-    return saveOrder;
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: MESSAGES.ORDER.CREATED,
+      data: saveOrder,
+    };
   }
 
   async getMyOrders(user) {
-    return this.orderRepo.find({
+    const orders = await this.orderRepo.find({
       where: { user: { id: user.id } },
       relations: ["items", "items.product"],
       order: { createdAt: "DESC" },
     });
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.ORDER.FETCHED,
+      data: orders,
+    };
   }
 
   async getOrderById(id: string, user) {
@@ -163,7 +174,11 @@ export class OrderService {
       where: { id, user: { id: user.id } },
       relations: ["items", "items.product"],
     });
-    return order;
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.ORDER.FETCHED,
+      data: order,
+    };
   }
 
   async trackOrder(id: string) {
@@ -303,11 +318,165 @@ export class OrderService {
     });
   }
 
-  async getAllOrders() {
-    return this.orderRepo.find({
-      relations: ["items", "items.product", "user"],
-      order: { createdAt: "DESC" },
-    });
+  async getAllOrders(query: FilterOrderDto = {}) {
+    const {
+      search,
+      userId,
+      deliveryPersonId,
+      status,
+      paymentStatus,
+      paymentMethod,
+      isPaid,
+      minTotalAmount,
+      maxTotalAmount,
+      createdFrom,
+      createdTo,
+      updatedFrom,
+      updatedTo,
+      sortBy = "createdAt",
+      sortOrder = "DESC",
+      page = 1,
+      limit = 10,
+    } = query;
+
+    const safePage = Math.max(Number(page) || 1, 1);
+    const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 100);
+    const allowedSortBy = new Set([
+      "createdAt",
+      "updatedAt",
+      "totalAmount",
+      "totalItems",
+      "status",
+      "paymentStatus",
+    ]);
+    const safeSortBy = allowedSortBy.has(sortBy) ? sortBy : "createdAt";
+    const safeSortOrder = String(sortOrder).toUpperCase() === "ASC" ? "ASC" : "DESC";
+
+    const createdFromDate = createdFrom ? new Date(createdFrom) : null;
+    const createdToDate = createdTo ? new Date(createdTo) : null;
+    const updatedFromDate = updatedFrom ? new Date(updatedFrom) : null;
+    const updatedToDate = updatedTo ? new Date(updatedTo) : null;
+
+    if (createdFrom && Number.isNaN(createdFromDate?.getTime())) {
+      throw new BadRequestException("Invalid createdFrom date");
+    }
+    if (createdTo && Number.isNaN(createdToDate?.getTime())) {
+      throw new BadRequestException("Invalid createdTo date");
+    }
+    if (updatedFrom && Number.isNaN(updatedFromDate?.getTime())) {
+      throw new BadRequestException("Invalid updatedFrom date");
+    }
+    if (updatedTo && Number.isNaN(updatedToDate?.getTime())) {
+      throw new BadRequestException("Invalid updatedTo date");
+    }
+    if (createdFromDate && createdToDate && createdFromDate > createdToDate) {
+      throw new BadRequestException("createdFrom must be before or equal to createdTo");
+    }
+    if (updatedFromDate && updatedToDate && updatedFromDate > updatedToDate) {
+      throw new BadRequestException("updatedFrom must be before or equal to updatedTo");
+    }
+
+    let normalizedIsPaid: boolean | undefined;
+    if (typeof isPaid === "boolean") {
+      normalizedIsPaid = isPaid;
+    } else if (typeof isPaid === "string") {
+      const lowered = isPaid.toLowerCase();
+      if (lowered === "true") normalizedIsPaid = true;
+      else if (lowered === "false") normalizedIsPaid = false;
+      else throw new BadRequestException("isPaid must be true or false");
+    }
+
+    const qb = this.orderRepo
+      .createQueryBuilder("order")
+      .leftJoinAndSelect("order.items", "items")
+      .leftJoinAndSelect("items.product", "product")
+      .leftJoinAndSelect("order.user", "user")
+      .leftJoinAndSelect("order.deliveryPerson", "deliveryPerson");
+
+    if (search) {
+      qb.andWhere(
+        `(order.id::text ILIKE :search
+          OR user.firstName ILIKE :search
+          OR user.lastName ILIKE :search
+          OR user.email ILIKE :search
+          OR user.mobile ILIKE :search
+          OR order.addressLine1 ILIKE :search
+          OR order.addressLine2 ILIKE :search
+          OR order.city ILIKE :search
+          OR order.state ILIKE :search
+          OR order.country ILIKE :search
+          OR order.pincode ILIKE :search)`,
+        { search: `%${search.trim()}%` },
+      );
+    }
+
+    if (userId) {
+      qb.andWhere("user.id = :userId", { userId });
+    }
+
+    if (deliveryPersonId) {
+      qb.andWhere("deliveryPerson.id = :deliveryPersonId", { deliveryPersonId });
+    }
+
+    if (status !== undefined) {
+      qb.andWhere("order.status = :status", { status });
+    }
+
+    if (paymentStatus !== undefined) {
+      qb.andWhere("order.paymentStatus = :paymentStatus", { paymentStatus });
+    }
+
+    if (paymentMethod !== undefined) {
+      qb.andWhere("order.paymentMethod = :paymentMethod", { paymentMethod });
+    }
+
+    if (normalizedIsPaid !== undefined) {
+      qb.andWhere("order.isPaid = :isPaid", { isPaid: normalizedIsPaid });
+    }
+
+    if (minTotalAmount !== undefined) {
+      qb.andWhere("order.totalAmount >= :minTotalAmount", { minTotalAmount });
+    }
+
+    if (maxTotalAmount !== undefined) {
+      qb.andWhere("order.totalAmount <= :maxTotalAmount", { maxTotalAmount });
+    }
+
+    if (createdFromDate) {
+      qb.andWhere("order.createdAt >= :createdFromDate", { createdFromDate });
+    }
+
+    if (createdToDate) {
+      qb.andWhere("order.createdAt <= :createdToDate", { createdToDate });
+    }
+
+    if (updatedFromDate) {
+      qb.andWhere("order.updatedAt >= :updatedFromDate", { updatedFromDate });
+    }
+
+    if (updatedToDate) {
+      qb.andWhere("order.updatedAt <= :updatedToDate", { updatedToDate });
+    }
+
+    qb.orderBy(`order.${safeSortBy}`, safeSortOrder);
+    qb.skip((safePage - 1) * safeLimit).take(safeLimit);
+
+    const [orders, total] = await qb.getManyAndCount();
+    const totalPages = Math.ceil(total / safeLimit) || 1;
+
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.ORDER.FETCHED,
+      data: {
+        items: orders,
+        total,
+        page: safePage,
+        limit: safeLimit,
+        totalPages,
+        hasNextPage: safePage < totalPages,
+        hasPreviousPage: safePage > 1,
+      },
+    };
   }
 
   async updateOrderStatus(id: string, status: OrderStatus) {
@@ -340,7 +509,12 @@ export class OrderService {
       type: NotificationType.ORDER_STATUS
     });
 
-    return this.orderRepo.save(order);
+    const updatedOrder = await this.orderRepo.save(order);
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.ORDER.UPDATED,
+      data: updatedOrder,
+    };
   }
 
   async cancelOrder(id: string, user, reason: string) {
@@ -387,7 +561,12 @@ export class OrderService {
     order.cancelReason = reason;
     order.cancelledAt = new Date();
 
-    return this.orderRepo.save(order);
+    const cancelledOrder = await this.orderRepo.save(order);
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.ORDER.CANCELLED,
+      data: cancelledOrder,
+    };
   }
 
   async assignDeliveryPerson(orderId: string) {
@@ -483,7 +662,12 @@ export class OrderService {
     order.assignedAt = new Date();
     order.status = OrderStatus.ASSIGNED;
 
-    return this.orderRepo.save(order);
+    const assignedOrder = await this.orderRepo.save(order);
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.DELIVERY.ASSIGNED,
+      data: assignedOrder,
+    };
   }
 
   async getSellerOrder(user) {
@@ -515,7 +699,11 @@ export class OrderService {
       })
       .filter(Boolean)
 
-    return filteredOrders;
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.ORDER.FETCHED,
+      data: filteredOrders,
+    };
   }
 
   async generateInvoice(orderId: string) {
@@ -630,7 +818,7 @@ export class OrderService {
       month: 'short',
       day: 'numeric',
     });
-   
+
 
     const footerTemplate = `
       <div style="width:100%; font-family: Inter, Arial, sans-serif; font-size:10px; color:#6B7280; padding:0 14mm; display:flex; justify-content:space-between; align-items:center; border-top:1px solid #E5E7EB; height:100%;">
@@ -746,7 +934,11 @@ export class OrderService {
       });
     }
 
-    return { message: "Delivery accepted successfully" };
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.DELIVERY.ACCEPTED,
+      data: null,
+    };
   }
 
   async rejectDelivery(orderId: string, user) {
@@ -767,7 +959,11 @@ export class OrderService {
 
     await this.assignDeliveryPerson(orderId);
 
-    return { message: 'Delivery rejected & reassigned' };
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.DELIVERY.REJECTED,
+      data: null,
+    };
   }
 
   async assignNextDelivery(orderId: string) {
@@ -779,7 +975,7 @@ export class OrderService {
     const rejectUserIds = rejectedIds.map(a => a.user.id)
 
     const nextDelivery = await this.orderRepo.query(
-    `
+      `
     SELECT dp."userId"
     FROM delivery_profile dp
     JOIN "user" u ON u.id = dp."userId"
@@ -789,8 +985,8 @@ export class OrderService {
       AND dp."userId" != ALL($2)
     LIMIT 1
     `,
-    [UserRole.DELIVERY, rejectUserIds],
-  );
+      [UserRole.DELIVERY, rejectUserIds],
+    );
 
 
     if (!nextDelivery.length) {
@@ -813,14 +1009,14 @@ export class OrderService {
 
   }
 
-  async confirmPayment(orderId : string){
+  async confirmPayment(orderId: string) {
     const order = await this.orderRepo.findOne({
-      where : {
-        id : orderId
+      where: {
+        id: orderId
       }
     })
 
-    if(!order){
+    if (!order) {
       throw new BadRequestException("Order Not Found")
     }
 
@@ -832,7 +1028,11 @@ export class OrderService {
 
     //assign delivery after payment
     await this.autoAssignDelivery(order.id)
-      return { message: 'Payment successful & order confirmed' };
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.PAYMENT.SUCCESS,
+      data: null,
+    };
 
   }
 
@@ -846,7 +1046,7 @@ export class OrderService {
     }
 
     order.paymentStatus = paymentStatus;
-    
+
     // Update isPaid based on payment status
     if (paymentStatus === PaymentStatus.COMPLETED) {
       order.isPaid = true;
@@ -861,6 +1061,11 @@ export class OrderService {
       type: NotificationType.ORDER_STATUS
     });
 
-    return this.orderRepo.save(order);
+    const updatedOrder = await this.orderRepo.save(order);
+    return {
+      statusCode: HttpStatus.OK,
+      message: MESSAGES.ORDER.UPDATED,
+      data: updatedOrder,
+    };
   }
 }

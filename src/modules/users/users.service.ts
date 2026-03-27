@@ -15,6 +15,7 @@ export class userServices {
   async getProfile(userId: string) {
     return this.userRepo.findOne({
       where: { id: userId },
+      relations: ['role', 'role.permissions'],
     });
   }
 
@@ -34,7 +35,9 @@ export class userServices {
       sortOrder = "ASC",
     } = query;
 
-    const qb = this.userRepo.createQueryBuilder("user");
+    const qb = this.userRepo
+      .createQueryBuilder("user")
+      .leftJoinAndSelect("user.role", "role");
 
     if (search?.trim()) {
       const term = `%${search.trim()}%`;
@@ -50,7 +53,7 @@ export class userServices {
     }
 
     if (role !== undefined) {
-      qb.andWhere("user.role = :role", { role });
+      qb.andWhere("role.name = :role", { role });
     }
 
     if (isVerified !== undefined) {
@@ -80,6 +83,7 @@ export class userServices {
   async getUserById(id: string) {
     return this.userRepo.findOne({
       where: { id },
+      relations: ['role', 'role.permissions'],
     });
   }
 

@@ -5,8 +5,6 @@ import { Shop } from "./entity/shop.entity";
 import { CreateShopDto } from "./dto/create-shop.dto";
 import { updateShopDto } from "./dto/update-shop.dto";
 import { User } from "src/modules/auth/entity/user.entity";
-import { UserRole } from "src/common/enum/roles.enum";
-import { S } from "node_modules/@faker-js/faker/dist/airline-Dz1uGqgJ";
 
 @Injectable()
 export class ShopsService {
@@ -125,7 +123,7 @@ export class ShopsService {
       throw new BadRequestException("Shop not found");
     }
 
-    if (user.role !== UserRole.ADMIN && shop.seller.id !== user.id) {
+    if (user.role?.name !== 'ADMIN' && shop.seller.id !== user.id) {
       throw new BadRequestException("Unauthorized to delete this shop");
     }
 

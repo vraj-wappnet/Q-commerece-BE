@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { User } from "./modules/auth/entity/user.entity";
@@ -29,6 +30,9 @@ import { QueueModule } from "./queue/queue.module";
 import { DeliveryProfileModule } from "./modules/delivery_profiles/delivery-profile.module";
 import { DeliveryQueueModule } from "./modules/order_delivery_assignment/delivery_assignment.module";
 import { PaymentModule } from "./modules/payments/payment.module";
+import { RolesPermissionModule } from "./modules/roles-permission/roles.module";
+import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 
 @Module({
   imports: [
@@ -91,6 +95,17 @@ import { PaymentModule } from "./modules/payments/payment.module";
     DeliveryProfileModule,
     DeliveryQueueModule,
     PaymentModule,
+    RolesPermissionModule,
+  ],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ResponseInterceptor,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: HttpExceptionFilter,
+    },
   ],
 })
 export class AppModule {}

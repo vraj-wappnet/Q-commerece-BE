@@ -11,7 +11,7 @@ import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { resendOtpDto } from "./dto/resend-otp.dto";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Queue } from "bullmq";
-import { UserRole } from "src/common/enum/roles.enum";
+import { Role } from "src/modules/roles-permission/entity/roles.entity";
 
 @Injectable()
 export class AuthService {
@@ -36,9 +36,13 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const hashed = await bcrypt.hash(dto.password, 10);
 
+    // Get the customer role
+    const customerRole = await this.userRepo.manager.getRepository(Role).findOne({ where: { name: 'CUSTOMER' } });
+
     const userData = {
       ...dto,
       password: hashed,
+      role: customerRole!,
     };
 
     const user = this.userRepo.create(userData);
@@ -80,7 +84,10 @@ export class AuthService {
   }
 
   async login(email: string, password: string) {
-    const user = await this.userRepo.findOne({ where: { email } });
+    const user = await this.userRepo.findOne({ 
+      where: { email },
+      relations: ['role', 'role.permissions']
+    });
 
     if (!user) throw new UnauthorizedException();
 
@@ -92,7 +99,7 @@ export class AuthService {
     }
 
     if (
-      (user.role === UserRole.SELLER || user.role === UserRole.DELIVERY) &&
+      (user.role?.name === 'SELLER' || user.role?.name === 'DELIVERY') &&
       !user.adminApproved
     ) {
       throw new UnauthorizedException("Admin approval is pending");
