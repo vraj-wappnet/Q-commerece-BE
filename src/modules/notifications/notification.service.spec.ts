@@ -152,7 +152,7 @@ describe('NotificationService', () => {
 
       const result = await service.saveNotification(notificationData);
 
-      expect(result.type).toBe(NotificationType.ORDER_STATUS);
+      expect((result as any).type).toBe(NotificationType.ORDER_STATUS);
     });
 
     it('should save notification with ORDER_ASSIGNED type', async () => {
@@ -170,7 +170,7 @@ describe('NotificationService', () => {
 
       const result = await service.saveNotification(notificationData);
 
-      expect(result.type).toBe(NotificationType.ORDER_ASSIGNED);
+      expect((result as any).type).toBe(NotificationType.ORDER_ASSIGNED);
     });
 
     it('should handle save failure', async () => {
@@ -197,7 +197,7 @@ describe('NotificationService', () => {
 
       const result = await service.saveNotification(notificationData);
 
-      expect(result.title).toBe(longTitle);
+      expect((result as any).title).toBe(longTitle);
     });
 
     it('should handle notification with special characters', async () => {
@@ -216,7 +216,7 @@ describe('NotificationService', () => {
 
       const result = await service.saveNotification(notificationData);
 
-      expect(result.title).toBe(specialTitle);
+      expect((result as any).title).toBe(specialTitle);
     });
   });
 

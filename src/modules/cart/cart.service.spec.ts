@@ -18,7 +18,7 @@ describe('CartService', () => {
   const mockUser = {
     id: 'user-uuid-123',
     firstName: 'John',
-    lastName: 'Doe',
+    lastName: 'Doe', 
     email: 'john@example.com',
     mobile: '1234567890',
   };

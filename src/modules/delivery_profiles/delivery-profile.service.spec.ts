@@ -28,7 +28,7 @@ describe('DeliveryProfileService', () => {
     firstName: 'Admin',
     lastName: 'User',
     email: 'admin@example.com',
-    role: UserRole.ADMIN,
+    role: { name: 'ADMIN' },
   };
 
   const mockDeliveryProfile = {

@@ -48,7 +48,10 @@ describe("JwtStrategy", () => {
 
       const result = await strategy.validate({ userId: "1" });
       expect(result).toEqual(mockUser);
-      expect(mockUserRepo.findOne).toHaveBeenCalledWith({ where: { id: "1" } });
+      expect(mockUserRepo.findOne).toHaveBeenCalledWith({ 
+        where: { id: "1" },
+        relations: ['role', 'role.permissions']
+      });
     });
 
     it("should throw UnauthorizedException if user does not exist", async () => {

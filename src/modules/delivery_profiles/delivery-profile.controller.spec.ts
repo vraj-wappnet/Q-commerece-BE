@@ -105,83 +105,83 @@ describe('DeliveryProfileController', () => {
     });
 
     it('should throw error when vehicleType is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.vehicleType;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when vehicleName is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.vehicleName;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when rcBookPhoto is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.rcBookPhoto;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when licensePhoto is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.licensePhoto;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when addressLine1 is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.addressLine1;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when city is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.city;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when state is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.state;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when pincode is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.pincode;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when latitude is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.latitude;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when longitude is missing', async () => {
-      const invalidDto = { ...createDto };
+      const invalidDto: any = { ...createDto };
       delete invalidDto.longitude;
       mockDeliveryProfileService.create.mockRejectedValue(new BadRequestException());
 
-      await expect(controller.create(invalidDto as any, mockRequest as any)).rejects.toThrow();
+      await expect(controller.create(invalidDto, mockRequest as any)).rejects.toThrow();
     });
 
     it('should throw error when latitude is not a number', async () => {
@@ -209,7 +209,7 @@ describe('DeliveryProfileController', () => {
     });
 
     it('should handle optional fields correctly', async () => {
-      const dtoWithoutOptional = { ...createDto };
+      const dtoWithoutOptional: any = { ...createDto };
       delete dtoWithoutOptional.addressLine2;
       delete dtoWithoutOptional.location;
 

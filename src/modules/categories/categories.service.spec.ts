@@ -468,7 +468,7 @@ describe('CategoriesService', () => {
 
       expect(result.statusCode).toBe(HttpStatus.OK);
       expect(result.message).toBe(MESSAGES.CATEGORY.UPDATED);
-      expect(result.data.name).toBe('Fruits');
+      expect((result.data as any).name).toBe('Fruits');
     });
 
     it('should allow updating to same name', async () => {

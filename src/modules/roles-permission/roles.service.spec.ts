@@ -379,8 +379,8 @@ describe('RolesService', () => {
 
       const result = await service.getRoleById(1);
 
-      expect(result.data.permissions).toBeDefined();
-      expect(result.data.permissions).toHaveLength(1);
+      expect((result.data as any).permissions).toBeDefined();
+      expect((result.data as any).permissions).toHaveLength(1);
     });
   });
 

@@ -3,6 +3,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, HttpStatus } from '@nestjs/common';
 import { CartController } from './cart.controller';
 import { CartService } from './cart.service';
+import { AddToCartDto } from './dto/add-to-cart.dto';
+import { UpdateCartDto } from './dto/update-cart.dto';
+import { FilterCartDto } from './dto/filter-cart.dto';
 import { MESSAGES } from '../../common/constant/message';
 
 describe('CartController', () => {
@@ -349,14 +352,14 @@ describe('CartController', () => {
       };
       mockCartService.getAllCarts.mockResolvedValue(expectedResponse);
 
-      const result = await controller.getAllCarts();
+      const result = await controller.getAllCarts({} as FilterCartDto);
 
-      expect(service.getAllCarts).toHaveBeenCalledWith(undefined);
+      expect(service.getAllCarts).toHaveBeenCalledWith({} as FilterCartDto);
       expect(result).toEqual(expectedResponse);
     });
 
     it('should apply search filter correctly', async () => {
-      const filters = { search: 'john' };
+      const filters = { search: 'john' } as FilterCartDto;
       mockCartService.getAllCarts.mockResolvedValue({} as any);
 
       await controller.getAllCarts(filters);
@@ -365,7 +368,7 @@ describe('CartController', () => {
     });
 
     it('should apply userId filter correctly', async () => {
-      const filters = { userId: 'user-123' };
+      const filters = { userId: 'user-123' } as FilterCartDto;
       mockCartService.getAllCarts.mockResolvedValue({} as any);
 
       await controller.getAllCarts(filters);
@@ -481,7 +484,7 @@ describe('CartController', () => {
       };
       mockCartService.getAllCarts.mockResolvedValue(expectedResponse);
 
-      const result = await controller.getAllCarts();
+      const result = await controller.getAllCarts({} as FilterCartDto);
 
       expect(result.data.data).toEqual([]);
       expect(result.data.total).toBe(0);
@@ -709,7 +712,7 @@ describe('CartController', () => {
       };
       mockCartService.getAllCarts.mockResolvedValue(expectedResponse);
 
-      const result = await controller.getAllCarts();
+      const result = await controller.getAllCarts({});
 
       expect(result).toHaveProperty('statusCode');
       expect(result).toHaveProperty('message');

@@ -37,7 +37,11 @@ describe("CloudinaryService", () => {
 
   describe("uploadImage", () => {
     it("should upload an image", async () => {
-      const mockFile = { buffer: Buffer.from("test") } as Express.Multer.File;
+      const mockFile = { 
+        buffer: Buffer.from("test"),
+        originalname: "test.png",
+        mimetype: "image/png"
+      } as Express.Multer.File;
       const mockResult = { url: "http://test.com" };
 
       const uploadStreamMock = {
@@ -51,7 +55,7 @@ describe("CloudinaryService", () => {
         },
       );
 
-      const result = await service.uploadImage(mockFile);
+      const result = await service.uploadMedia(mockFile);
 
       expect(result).toEqual(mockResult);
       expect(uploadStreamMock.end).toHaveBeenCalledWith(mockFile.buffer);
@@ -59,8 +63,8 @@ describe("CloudinaryService", () => {
 
     it("should throw error if no buffer provided", async () => {
       const mockFile = {} as Express.Multer.File;
-      await expect(service.uploadImage(mockFile)).rejects.toThrow(
-        "No image buffer provided",
+      await expect(service.uploadMedia(mockFile)).rejects.toThrow(
+        "No file buffer provided",
       );
     });
   });
