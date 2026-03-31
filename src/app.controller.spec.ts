@@ -300,7 +300,7 @@ describe("AppController", () => {
     it("should not leak memory on multiple calls", () => {
       mockAppService.getHello.mockReturnValue("Hello World!");
 
-      const results = [];
+      const results: string[] = [];
       for (let i = 0; i < 1000; i++) {
         results.push(appController.getHello());
       }
