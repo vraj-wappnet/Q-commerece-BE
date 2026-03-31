@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DeliveryProfileService } from './delivery-profile.service';
 import { DeliveryProfile } from './entity/delivery-profile.entity';
+import { CreateDeliveryProfileDto } from './dto/create-delivery-profile.dto';
 import { UserRole } from '../../common/enum/roles.enum';
 import { MESSAGES } from '../../common/constant/message';
 
@@ -137,7 +138,7 @@ describe('DeliveryProfileService', () => {
     });
 
     it('should handle optional fields correctly', async () => {
-      const dtoWithoutOptional = { ...createDto };
+      const dtoWithoutOptional = { ...createDto } as CreateDeliveryProfileDto;
       delete dtoWithoutOptional.addressLine2;
       delete dtoWithoutOptional.location;
 
