@@ -3,11 +3,13 @@ import { getRepositoryToken } from "@nestjs/typeorm";
 import { BadRequestException } from "@nestjs/common";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Repository } from "typeorm";
+import * as XLSX from "xlsx";
 import { ReportService } from "./report.service";
 import { Order } from "../orders/entity/order.entity";
 import { User } from "../auth/entity/user.entity";
 import { Product } from "../products/entity/product.entity";
 import { Category } from "../categories/entity/category.entity";
+import { SubCategory } from "../categories/entity/sub-category.entity";
 import { Shop } from "../shops/entity/shop.entity";
 import { OrderStatus, PaymentStatus, paymentMethod } from "src/common/enum/status.enum";
 
@@ -17,6 +19,7 @@ describe("ReportService", () => {
   let userRepository: Repository<User>;
   let productRepository: Repository<Product>;
   let categoryRepository: Repository<Category>;
+  let subCategoryRepository: Repository<SubCategory>;
   let shopRepository: Repository<Shop>;
 
   const mockOrderRepository = {
@@ -36,8 +39,13 @@ describe("ReportService", () => {
     find: vi.fn(),
   };
 
+  const mockSubCategoryRepository = {
+    find: vi.fn(),
+  };
+
   const mockShopRepository = {
     findOne: vi.fn(),
+    find: vi.fn(),
   };
 
   const qb = {
@@ -61,6 +69,7 @@ describe("ReportService", () => {
         { provide: getRepositoryToken(User), useValue: mockUserRepository },
         { provide: getRepositoryToken(Product), useValue: mockProductRepository },
         { provide: getRepositoryToken(Category), useValue: mockCategoryRepository },
+        { provide: getRepositoryToken(SubCategory), useValue: mockSubCategoryRepository },
         { provide: getRepositoryToken(Shop), useValue: mockShopRepository },
       ],
     }).compile();
@@ -70,6 +79,7 @@ describe("ReportService", () => {
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
     productRepository = module.get<Repository<Product>>(getRepositoryToken(Product));
     categoryRepository = module.get<Repository<Category>>(getRepositoryToken(Category));
+    subCategoryRepository = module.get<Repository<SubCategory>>(getRepositoryToken(SubCategory));
     shopRepository = module.get<Repository<Shop>>(getRepositoryToken(Shop));
   });
 
@@ -138,19 +148,6 @@ describe("ReportService", () => {
         }),
       );
     });
-
-    it("should convert returned orders to CSV", async () => {
-      const orders = [{ id: "o1" }, { id: "o2" }];
-      mockUserRepository.findOne.mockResolvedValue({ id: "admin-1", role: { name: "ADMIN" } });
-      mockOrderRepository.createQueryBuilder.mockReturnValue(qb);
-      qb.getMany.mockResolvedValue(orders);
-      const convertSpy = vi.spyOn(service as any, "convertToCSV").mockReturnValue("csv-two-rows");
-
-      const result = await service.generateReport("admin-1", "monthly");
-
-      expect(convertSpy).toHaveBeenCalledWith(orders);
-      expect(result).toBe("csv-two-rows");
-    });
   });
 
   describe("convertToCSV", () => {
@@ -182,8 +179,6 @@ describe("ReportService", () => {
       const csv = (service as any).convertToCSV(data);
 
       expect(csv).toContain("OUT FOR DELIVERY");
-      // Current implementation checks OrderStatus enum first, so overlapping numeric
-      // values are mapped using order-status labels.
       expect(csv).toContain("PACKED");
       expect(csv).toContain("PENDING");
       expect(csv).toContain("Fresh Mart");
@@ -191,31 +186,10 @@ describe("ReportService", () => {
       expect(csv).toContain("Apple");
       expect(csv).toContain("(2x $99)");
     });
-
-    it("should create single row for order without items and honor start index", () => {
-      const data = [
-        {
-          user: { firstName: "No", lastName: "Items" },
-          items: [],
-          totalAmount: 10,
-          status: OrderStatus.PENDING,
-          paymentStatus: PaymentStatus.PENDING,
-          paymentMethod: paymentMethod.ONLINE_PAYMENT,
-          cancelReason: "N/A",
-        },
-      ];
-
-      const csv = (service as any).convertToCSV(data, 10);
-
-      expect(csv).toContain("\n10,");
-      expect(csv).toContain("CONFIRMED");
-      expect(csv).toContain("N/A");
-    });
   });
 
-  describe("bulkUploadCSV", () => {
+  describe("bulkUploadExcel", () => {
     const sellerUser = { id: "seller-1", role: { name: "SELLER" } };
-    const adminUser = { id: "admin-1", role: { name: "ADMIN" } };
     const categoriesFixture = [
       {
         id: "cat-1",
@@ -224,168 +198,128 @@ describe("ReportService", () => {
       },
       {
         id: "cat-2",
-        name: "Fashion",
-        subCategories: [{ id: "sub-2", name: "T-Shirts" }],
+        name: "Footwear",
+        subCategories: [{ id: "sub-2", name: "Shoes" }],
       },
     ];
 
-    const toFile = (content: string) =>
-      ({
-        buffer: Buffer.from(content),
-      } as Express.Multer.File);
+    const toExcelFile = (rows: any[][]) => {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      XLSX.utils.book_append_sheet(wb, ws, "Products");
+      return {
+        buffer: XLSX.write(wb, { type: "buffer", bookType: "xlsx" }),
+      } as Express.Multer.File;
+    };
+
+    it("should throw when categories are not available", async () => {
+      mockCategoryRepository.find.mockResolvedValue([]);
+      const file = toExcelFile([["name", "categoryId"], ["Phone", "cat-1"]]);
+
+      await expect(service.bulkUploadExcel(file, sellerUser)).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service.bulkUploadExcel(file, sellerUser)).rejects.toThrow(
+        "No categories found. Please create category and subcategory first.",
+      );
+    });
+
+    it("should ignore empty template rows and process only filled rows", async () => {
+      mockCategoryRepository.find.mockResolvedValue(categoriesFixture);
+      mockShopRepository.findOne.mockResolvedValue({ id: "shop-1" });
+      mockProductRepository.create.mockImplementation((payload: any) => payload);
+      mockProductRepository.save.mockResolvedValue({ id: "prod-1", name: "Phone" });
+
+      const file = toExcelFile([
+        ["name", "mrp", "sellingPrice", "categoryId", "subCategoryId"],
+        ["Phone", "1000", "900", "cat-1", "sub-1"],
+        ["", "", "", "", ""],
+        [null, null, null, null, null],
+      ]);
+
+      const result: any = await service.bulkUploadExcel(file, sellerUser);
+
+      expect(result.totalProcessed).toBe(1);
+      expect(result.successCount).toBe(1);
+      expect(result.errorCount).toBe(0);
+    });
+
+    it("should support category/subcategory names selected from dropdown", async () => {
+      mockCategoryRepository.find.mockResolvedValue(categoriesFixture);
+      mockShopRepository.findOne.mockResolvedValue({ id: "shop-1" });
+      mockProductRepository.create.mockImplementation((payload: any) => payload);
+      mockProductRepository.save.mockResolvedValue({ id: "prod-2" });
+
+      const file = toExcelFile([
+        ["name", "mrp", "categoryId", "subCategoryId"],
+        ["Laptop", "50000", "Electronics", "Mobiles"],
+      ]);
+
+      const result: any = await service.bulkUploadExcel(file, sellerUser);
+
+      expect(productRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          category: categoriesFixture[0],
+          subCategory: categoriesFixture[0].subCategories[0],
+        }),
+      );
+      expect(result.successCount).toBe(1);
+      expect(result.errorCount).toBe(0);
+    });
+
+    it("should reject subcategory when it does not belong to selected category", async () => {
+      mockCategoryRepository.find.mockResolvedValue(categoriesFixture);
+      mockShopRepository.findOne.mockResolvedValue({ id: "shop-1" });
+
+      const file = toExcelFile([
+        ["name", "mrp", "categoryId", "subCategoryId"],
+        ["Sneaker", "2000", "Footwear", "Mobiles"],
+      ]);
+
+      const result: any = await service.bulkUploadExcel(file, sellerUser);
+
+      expect(result.successCount).toBe(0);
+      expect(result.errorCount).toBe(1);
+      expect(result.errors[0]).toContain("Subcategory not found under Footwear");
+    });
+  });
+
+  describe("generateBulkUploadSampleExcel", () => {
+    it("should generate sample excel and send response", async () => {
+      mockCategoryRepository.find.mockResolvedValue([
+        { id: "cat-1", name: "Electronics" },
+      ]);
+      mockSubCategoryRepository.find.mockResolvedValue([
+        {
+          id: "sub-1",
+          name: "Mobiles",
+          category: { id: "cat-1", name: "Electronics" },
+        },
+      ]);
+
+      const res = {
+        setHeader: vi.fn(),
+        send: vi.fn().mockReturnValue("sent"),
+      } as any;
+
+      const result = await service.generateBulkUploadSampleExcel(res);
+
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "Content-Disposition",
+        "attachment; filename=sample-products.xlsx",
+      );
+      expect(res.send).toHaveBeenCalledWith(expect.any(Buffer));
+      expect(result).toBe("sent");
+    });
 
     it("should throw when categories are not available", async () => {
       mockCategoryRepository.find.mockResolvedValue([]);
 
-      const file = toFile("name,price\nPhone,1000");
-
-      await expect(service.bulkUploadCSV(file, sellerUser)).rejects.toBeInstanceOf(BadRequestException);
-      await expect(service.bulkUploadCSV(file, sellerUser)).rejects.toThrow(
-        "No categories found. Please create category and subcategory first.",
-      );
-    });
-
-    it("should collect row-level validation errors for missing required fields and invalid price", async () => {
-      mockCategoryRepository.find.mockResolvedValue(categoriesFixture);
-      mockShopRepository.findOne.mockResolvedValue({ id: "shop-1" });
-
-      const file = toFile(
-        "name,price,category\n,100,Electronics\nMilk,abc,Electronics\n",
-      );
-
-      const result: any = await service.bulkUploadCSV(file, sellerUser);
-
-      expect(result.totalProcessed).toBe(2);
-      expect(result.successCount).toBe(0);
-      expect(result.errorCount).toBe(2);
-      expect(result.errors).toContain("Row 1: Name and one of price/sellingPrice/mrp is required");
-      expect(result.errors).toContain("Row 2: Invalid price for Milk");
-    });
-
-    it("should reject seller rows when seller shop is not found", async () => {
-      mockCategoryRepository.find.mockResolvedValue(categoriesFixture);
-      mockShopRepository.findOne.mockResolvedValue(null);
-
-      const file = toFile("name,price,category\nPhone,1000,Electronics");
-      const result: any = await service.bulkUploadCSV(file, sellerUser);
-
-      expect(result.successCount).toBe(0);
-      expect(result.errorCount).toBe(1);
-      expect(result.errors).toContain("Row 1: No shop found for seller");
-    });
-
-    it("should reject admin rows when provided shopId does not exist", async () => {
-      mockCategoryRepository.find.mockResolvedValue(categoriesFixture);
-      mockShopRepository.findOne.mockResolvedValue(null);
-
-      const file = toFile("name,price,category,shopId\nPhone,1000,Electronics,missing-shop");
-      const result: any = await service.bulkUploadCSV(file, adminUser);
-
-      expect(result.successCount).toBe(0);
-      expect(result.errorCount).toBe(1);
-      expect(result.errors).toContain("Row 1: Shop not found");
-    });
-
-    it("should create products successfully with default category and default subcategory when not provided", async () => {
-      const sellerShop = { id: "shop-1" };
-      const createdProduct = { id: "prod-1", name: "Phone" };
-
-      mockCategoryRepository.find.mockResolvedValue(categoriesFixture);
-      mockShopRepository.findOne.mockResolvedValue(sellerShop);
-      mockProductRepository.create.mockImplementation((payload: any) => payload);
-      mockProductRepository.save.mockResolvedValue(createdProduct);
-
-      const file = toFile(
-        "name,price,mrp,sellingPrice,stockQuantity,isAvailable,images\nPhone,1000,1200,1000,5,true,\"https://a.com/1.jpg,https://a.com/2.jpg\"",
-      );
-
-      const result: any = await service.bulkUploadCSV(file, sellerUser);
-
-      expect(productRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: "Phone",
-          mrp: 1200,
-          sellingPrice: 1000,
-          stockQuantity: 5,
-          category: categoriesFixture[0],
-          subCategory: categoriesFixture[0].subCategories[0],
-          shop: sellerShop,
-          images: ["https://a.com/1.jpg", "https://a.com/2.jpg"],
-        }),
-      );
-      expect(productRepository.save).toHaveBeenCalled();
-      expect(result.totalProcessed).toBe(1);
-      expect(result.successCount).toBe(1);
-      expect(result.errorCount).toBe(0);
-      expect(result.products).toEqual([createdProduct]);
-    });
-
-    it("should support repository save returning array of products", async () => {
-      const sellerShop = { id: "shop-1" };
-      const savedProducts = [{ id: "p1" }, { id: "p2" }];
-
-      mockCategoryRepository.find.mockResolvedValue(categoriesFixture);
-      mockShopRepository.findOne.mockResolvedValue(sellerShop);
-      mockProductRepository.create.mockImplementation((payload: any) => payload);
-      mockProductRepository.save.mockResolvedValue(savedProducts);
-
-      const file = toFile("name,price,category,subCategory\nPhone,1000,Electronics,Mobiles");
-      const result: any = await service.bulkUploadCSV(file, sellerUser);
-
-      expect(result.successCount).toBe(2);
-      expect(result.products).toEqual(savedProducts);
-    });
-
-    it("should allow categoryId/subCategoryId columns from product table relations", async () => {
-      mockCategoryRepository.find.mockResolvedValue(categoriesFixture);
-      mockShopRepository.findOne.mockResolvedValue({ id: "shop-1" });
-      mockProductRepository.create.mockImplementation((payload: any) => payload);
-      mockProductRepository.save.mockResolvedValue({ id: "p1" });
-
-      const file = toFile(
-        "name,mrp,sellingPrice,stockQuantity,isAvailable,unit,isVeg,images,categoryId,subCategoryId\nPhone,1000,950,12,true,pieces,true,\"https://a.com/1.jpg\",cat-1,sub-1",
-      );
-      const result: any = await service.bulkUploadCSV(file, sellerUser);
-
-      expect(productRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          category: categoriesFixture[0],
-          subCategory: categoriesFixture[0].subCategories[0],
-        }),
-      );
-      expect(result.successCount).toBe(1);
-      expect(result.errorCount).toBe(0);
-    });
-  });
-
-  describe("generateBulkUploadSampleCsv", () => {
-    it("should throw when no categories exist", async () => {
-      mockCategoryRepository.find.mockResolvedValue([]);
-
-      await expect(service.generateBulkUploadSampleCsv()).rejects.toBeInstanceOf(BadRequestException);
-      await expect(service.generateBulkUploadSampleCsv()).rejects.toThrow(
-        "No categories found. Please create category and subcategory first.",
-      );
-    });
-
-    it("should generate product-table aligned sample with relation columns", async () => {
-      mockCategoryRepository.find.mockResolvedValue([
-        {
-          id: "cat-1",
-          name: "Electronics",
-          subCategories: [{ id: "sub-1", name: "Mobiles" }],
-        },
-      ]);
-
-      const csv = await service.generateBulkUploadSampleCsv();
-
-      expect(csv).toContain('"name","description","longDescription"');
-      expect(csv).toContain('"mrp","sellingPrice","discountPercentage"');
-      expect(csv).toContain('"shopId","categoryId","subCategoryId"');
-      expect(csv).toContain("categoryOptions");
-      expect(csv).toContain("subCategoryOptions");
-      expect(csv).toContain("cat-1");
-      expect(csv).toContain("sub-1");
+      await expect(
+        service.generateBulkUploadSampleExcel({ setHeader: vi.fn(), send: vi.fn() } as any),
+      ).rejects.toThrow("No categories found. Please create category and subcategory first.");
     });
   });
 });

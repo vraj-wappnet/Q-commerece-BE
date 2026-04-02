@@ -1,13 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { MailerService } from "@nestjs-modules/mailer";
-import { join } from "path";
 
 @Injectable()
 export class MailService {
   constructor(private mailerService: MailerService) {}
 
   async sendOtp(email: string, otp: string) {
-    const logoPath = join(process.cwd(), 'src/assets/images/logo.png');
     const otpArray = otp.split("");
     const otpBoxes = otpArray
       .map(
@@ -23,13 +21,7 @@ export class MailService {
       to: email,
       from: `"SwiftMart Support" <${process.env.MAIL_USER}>`,
       subject: "Verify Your SwiftMart Account - OTP Code",
-      attachments: [
-        {
-          filename: "logo.png",
-          path: logoPath,
-          cid: "swiftmart-logo",
-        },
-      ],
+      text: `Your SwiftMart OTP is ${otp}. It is valid for 5 minutes.`,
       html: `
             <!DOCTYPE html>
             <html lang="en">
@@ -42,7 +34,7 @@ export class MailService {
                 <table cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; margin: 40px auto; border-top: 11px solid #2563EB; background-color: #ffffff; border-radius: 0 0 20px 20px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);">
                     <tr>
                         <td style="text-align: center; padding: 40px 0;">
-                            <img src="cid:swiftmart-logo" alt="SwiftMart" style="width: 180px;">
+                            <h1 style="margin: 0; color: #2563EB; font-size: 26px;">SwiftMart</h1>
                         </td>
                     </tr>
                     <tr>
