@@ -31,6 +31,7 @@ import { DeliveryProfileModule } from "./modules/delivery_profiles/delivery-prof
 import { DeliveryQueueModule } from "./modules/order_delivery_assignment/delivery_assignment.module";
 import { PaymentModule } from "./modules/payments/payment.module";
 import { RolesPermissionModule } from "./modules/roles-permission/roles.module";
+import { ReportModule } from "./modules/reports/reports.module";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 
@@ -96,6 +97,7 @@ import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
     DeliveryQueueModule,
     PaymentModule,
     RolesPermissionModule,
+    ReportModule,
   ],
   providers: [
     {

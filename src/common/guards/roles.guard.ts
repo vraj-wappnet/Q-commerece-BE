@@ -18,11 +18,37 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    const userRole: unknown = user?.role;
-    const normalizedRole =
-      typeof userRole === "string" ? Number(userRole) : userRole;
+    if (!user || !user.role) return false;
 
+    // Handle both role object and role string/number
+    let userRoleValue: number;
+    
+    if (typeof user.role === 'object' && user.role.name) {
+      // Convert role name to enum value
+      const roleName = user.role.name.toUpperCase();
+      switch (roleName) {
+        case 'ADMIN':
+          userRoleValue = UserRole.ADMIN;
+          break;
+        case 'SELLER':
+          userRoleValue = UserRole.SELLER;
+          break;
+        case 'DELIVERY':
+          userRoleValue = UserRole.DELIVERY;
+          break;
+        case 'CUSTOMER':
+          userRoleValue = UserRole.CUSTOMER;
+          break;
+        default:
+          return false;
+      }
+    } else {
+      // Handle string or number role
+      const normalizedRole =
+        typeof user.role === "string" ? Number(user.role) : user.role;
+      userRoleValue = normalizedRole as number;
+    }
 
-    return roles.includes(normalizedRole as UserRole);
+    return roles.includes(userRoleValue as UserRole);
   }
 }

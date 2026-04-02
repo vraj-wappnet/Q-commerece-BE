@@ -114,7 +114,10 @@ export class AuthService {
 
     return {
       accessToken: token,
-      user,
+      user: {
+        ...user,
+        permissions: user.role?.permissions || []
+      },
     };
   }
 
@@ -147,6 +150,17 @@ export class AuthService {
       throw new Error("password does not match");
     }
 
+    const otpRecord = await this.otpRepo
+      .createQueryBuilder("otp")
+      .where("otp.email = :email", { email: dto.email })
+      .andWhere("otp.otp = :otp", { otp: dto.otp })
+      .andWhere("otp.expiresAt > :now", { now: new Date() })
+      .getOne();
+
+    if (!otpRecord) {
+      throw new UnauthorizedException("Invalid or expired OTP");
+    }
+
     const user = await this.userRepo.findOne({
       where: { email: dto.email },
     });
@@ -163,6 +177,12 @@ export class AuthService {
       .set({
         password: hashedPassword,
       })
+      .where("email = :email", { email: dto.email })
+      .execute();
+
+    await this.otpRepo
+      .createQueryBuilder()
+      .delete()
       .where("email = :email", { email: dto.email })
       .execute();
 

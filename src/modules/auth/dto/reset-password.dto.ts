@@ -19,4 +19,11 @@ export class ResetPasswordDto {
   })
   @IsNotEmpty()
   confirmPassword: string;
+
+  @ApiProperty({
+    example: "123456",
+    description: "OTP received on email for password reset",
+  })
+  @IsNotEmpty()
+  otp: string;
 }

@@ -100,7 +100,13 @@ describe("AuthService", () => {
       mockJwtService.sign.mockReturnValue("token");
 
       const result = await service.login("test@test.com", "password");
-      expect(result).toEqual({ accessToken: "token", user });
+      expect(result).toEqual({
+        accessToken: "token",
+        user: {
+          ...user,
+          permissions: [],
+        },
+      });
     });
 
     it("should throw UnauthorizedException on invalid password", async () => {
